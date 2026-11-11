@@ -1,0 +1,22 @@
+{
+  "name": "merchant-machine-payments",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @mmp/contracts build && pnpm --parallel --filter @mmp/api --filter @mmp/web dev",
+    "build": "pnpm -r build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm --filter @mmp/contracts build && pnpm -r typecheck",
+    "db:generate": "pnpm --filter @mmp/api db:generate",
+    "db:migrate": "pnpm --filter @mmp/api db:migrate"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "typescript": "5.9.3"
+  }
+}

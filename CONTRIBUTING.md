@@ -1,0 +1,10 @@
+# Contributing
+
+1. Read `agent.md`, `planning.md`, and `status.md` before picking up work.
+2. Keep one story in progress and preserve the shared-contract → API → UI boundaries.
+3. Use exact XRP decimal strings and drops; do not compare amounts using floating-point arithmetic.
+4. Never add secrets, seeds, or real-funds endpoints. Keep changes Testnet-only.
+5. Run the same quality gates as CI before opening a pull request: `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm audit --prod --audit-level high`.
+6. Update `status.md` with completed work and remaining blockers. Keep `planning.md` current when scope changes.
+
+Pull requests should explain the user outcome, list relevant event-track acceptance criteria, and include a screenshot or short screen recording for interface changes.

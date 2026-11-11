@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: mmp
+      POSTGRES_USER: mmp
+      POSTGRES_PASSWORD: mmp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mmp -d mmp"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgres://mmp:mmp@db:5432/mmp
+      WEB_ORIGIN: http://localhost:8080
+      PUBLIC_WEB_URL: http://localhost:8080
+      PAYMENT_MODE: ${PAYMENT_MODE:-demo}
+      MERCHANT_XRPL_ADDRESS: ${MERCHANT_XRPL_ADDRESS:-}
+      XRPL_WS_URL: ${XRPL_WS_URL:-wss://s.altnet.rippletest.net:51233}
+      AUTH_MODE: ${AUTH_MODE:-off}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_ORGANIZATION_CLAIM: ${OIDC_ORGANIZATION_CLAIM:-org_id}
+      DEMO_PAYMENTS_ENABLED: ${DEMO_PAYMENTS_ENABLED:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 4s
+      retries: 10
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
+        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-}
+        VITE_AUTH0_ORGANIZATION: ${VITE_AUTH0_ORGANIZATION:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null"]
+      interval: 15s
+      timeout: 4s
+      retries: 5
+
+volumes:
+  postgres_data:

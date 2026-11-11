@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.next/
+coverage/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+pnpm-debug.log*
+apps/web/.vite/

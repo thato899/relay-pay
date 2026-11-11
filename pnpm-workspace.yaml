@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  browser-tabs-lock: set this to true or false
+  esbuild: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.71.0
