@@ -8,9 +8,17 @@ export interface MerchantIdentity {
   scopes: string[];
 }
 
+export interface DeviceIdentity {
+  subject: string;
+  organizationId: string;
+  deviceId: string;
+  deviceCode: string;
+}
+
 declare module "fastify" {
   interface FastifyRequest {
     merchantIdentity: MerchantIdentity | null;
+    deviceIdentity: DeviceIdentity | null;
   }
 }
 
@@ -25,12 +33,27 @@ function bearerToken(header: string | undefined): string | null {
   return match?.[1] ?? null;
 }
 
-function tokenScopes(scope: unknown, permissions: unknown): string[] {
+export function tokenScopes(scope: unknown, permissions: unknown): string[] {
   const fromScope = typeof scope === "string" ? scope.split(/\s+/).filter(Boolean) : [];
   const fromPermissions = Array.isArray(permissions)
     ? permissions.filter((permission): permission is string => typeof permission === "string")
     : [];
   return [...new Set([...fromScope, ...fromPermissions])];
+}
+
+export function oidcIsConfigured(): boolean {
+  return Boolean(remoteJwks && config.oidcIssuer && config.oidcAudience);
+}
+
+export async function verifyAccessToken(header: string | undefined) {
+  const token = bearerToken(header);
+  if (!token || !remoteJwks || !config.oidcIssuer || !config.oidcAudience) return null;
+  const { payload } = await jwtVerify(token, remoteJwks, {
+    issuer: config.oidcIssuer,
+    audience: config.oidcAudience,
+    algorithms: ["RS256"],
+  });
+  return payload;
 }
 
 export function requireMerchantIdentity(requiredScopes: string[] = []): preHandlerHookHandler {
@@ -39,7 +62,7 @@ export function requireMerchantIdentity(requiredScopes: string[] = []): preHandl
       request.merchantIdentity = {
         subject: "local-development",
         organizationId: "local-development",
-        scopes: ["invoices:read", "invoices:write"],
+        scopes: ["invoices:read", "invoices:write", "devices:admin"],
       };
       return;
     }
@@ -60,11 +83,13 @@ export function requireMerchantIdentity(requiredScopes: string[] = []): preHandl
     }
 
     try {
-      const { payload } = await jwtVerify(token, remoteJwks, {
-        issuer: config.oidcIssuer,
-        audience: config.oidcAudience,
-        algorithms: ["RS256"],
-      });
+      const payload = await verifyAccessToken(request.headers.authorization);
+      if (!payload) {
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A valid bearer access token is required.",
+        });
+      }
       const organizationId = payload[config.oidcOrganizationClaim];
       if (typeof payload.sub !== "string" || typeof organizationId !== "string") {
         return reply.code(403).send({

@@ -1,7 +1,7 @@
 import type { PaymentMode } from "@mmp/contracts";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { auditEvents, invoices, payments } from "../../db/schema.js";
+import { auditEvents, deviceInvoiceOperations, invoices, payments } from "../../db/schema.js";
 
 export type InvoiceRow = typeof invoices.$inferSelect;
 
@@ -34,6 +34,20 @@ export interface AuditContext {
   requestId: string | null;
 }
 
+export interface MachineOperation {
+  deviceId: string;
+  operationId: string;
+  cycleCode: string;
+  requestHash: string;
+}
+
+export class DeviceOperationConflictError extends Error {
+  constructor() {
+    super("This operation ID was already used with different request details.");
+    this.name = "DeviceOperationConflictError";
+  }
+}
+
 export class InvoiceRepository {
   async create(input: NewInvoice, audit: AuditContext): Promise<InvoiceRow> {
     const [row] = await db.transaction(async (tx) => {
@@ -50,6 +64,61 @@ export class InvoiceRepository {
     });
     if (!row) throw new Error("Invoice insert returned no row");
     return row;
+  }
+
+  async createForDeviceOperation(
+    input: NewInvoice,
+    operation: MachineOperation,
+    audit: AuditContext,
+  ): Promise<{ row: InvoiceRow; created: boolean }> {
+    return db.transaction(async (tx) => {
+      const lockKey = `${operation.deviceId}:${operation.operationId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+      const [existing] = await tx
+        .select()
+        .from(deviceInvoiceOperations)
+        .where(
+          and(
+            eq(deviceInvoiceOperations.deviceId, operation.deviceId),
+            eq(deviceInvoiceOperations.operationId, operation.operationId),
+          ),
+        )
+        .limit(1);
+
+      if (existing) {
+        if (existing.requestHash !== operation.requestHash)
+          throw new DeviceOperationConflictError();
+        const [invoice] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, existing.invoiceId))
+          .limit(1);
+        if (!invoice) throw new Error("Device operation references a missing invoice");
+        return { row: invoice, created: false };
+      }
+
+      const [invoice] = await tx.insert(invoices).values(input).returning();
+      if (!invoice) throw new Error("Invoice insert returned no row");
+      await tx.insert(auditEvents).values({
+        ...audit,
+        action: "invoice.created_by_device",
+        resourceType: "invoice",
+        resourceId: invoice.id,
+        metadata: {
+          network: invoice.network,
+          deviceId: operation.deviceId,
+          cycleCode: operation.cycleCode,
+        },
+      });
+      await tx.insert(deviceInvoiceOperations).values({
+        deviceId: operation.deviceId,
+        operationId: operation.operationId,
+        cycleCode: operation.cycleCode,
+        requestHash: operation.requestHash,
+        invoiceId: invoice.id,
+      });
+      return { row: invoice, created: true };
+    });
   }
 
   async findById(id: string, merchantId: string): Promise<InvoiceRow | undefined> {

@@ -43,7 +43,13 @@ Demo mode is explicitly marked in the interface. Its “Simulate payment” butt
 
 ### Auth0 merchant sign-in
 
-For an Auth0 tenant, configure the API's `AUTH_MODE=oidc`, `OIDC_ISSUER`, and `OIDC_AUDIENCE`, then set `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and `VITE_AUTH0_AUDIENCE` for the web build. Add the web origin to the Auth0 SPA application's Allowed Callback, Logout, and Web Origins. An optional `VITE_AUTH0_ORGANIZATION` preselects the organization; otherwise the dashboard asks for its Auth0 organization ID. The SPA client ID is public; do not add a client secret to browser or `VITE_*` configuration. Public customer checkout remains accessible without merchant login.
+For an Auth0 tenant, configure the API's `AUTH_MODE=oidc`, `OIDC_ISSUER`, and `OIDC_AUDIENCE`, then set `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and `VITE_AUTH0_AUDIENCE` for the web build. Add the web origin to the Auth0 SPA application's Allowed Callback, Logout, and Web Origins. An optional `VITE_AUTH0_ORGANIZATION` preselects the organization; otherwise the dashboard asks for its Auth0 organization ID. Configure the custom API permissions `invoices:read`, `invoices:write`, and `devices:admin`; an Auth0 machine-to-machine application used by a registered device needs `devices:connect`. The SPA client ID is public; do not add a client secret to browser or `VITE_*` configuration. Public customer checkout remains accessible without merchant login.
+
+### Machine identity registration
+
+An organization admin registers a device through `POST /v1/devices` with its stable device code, display name, and machine-to-machine token subject. The API stores the subject-to-organization mapping and audits registration. A device presents an access token for the API audience with `devices:connect`; `GET /v1/device/context` resolves the verified subject to its active server-side registration. The token's organization claim is not trusted for machine tenancy. Disable a device using `POST /v1/devices/{id}/disable`; this revokes API access on the next request. Rotate credentials by registering the new machine subject and disabling the old registration. Never put a machine secret in a browser bundle or checkout URL.
+
+Registered devices create washer-cycle invoices with `POST /v1/device/invoices`. The body includes a stable `operationId`, `cycleCode`, exact `amountXrp`, and optional reference. An identical retry returns the original invoice; reusing an operation ID with changed details returns `409`. The operation record, invoice, and audit entry commit together. Invoice creation does not authorize a machine to start a cycle; the payment/cycle state flow remains a separate ticket.
 
 ### Run web and API without container builds
 
@@ -105,7 +111,7 @@ No deployment environment or credentials are assumed. Add a deploy job only afte
 - Customer QR opens Relay Pay's checkout page. The customer then pays from their own wallet with the shown address and tag.
 - Payment reconciliation scans the recent account transaction window; this is a hackathon MVP, not a high-volume payment processor.
 - Invoices use UUID links but there is no login gate. Do not expose sensitive customer information.
-- Auth0 Organizations/OIDC is the selected identity model, and API token verification is implemented. Merchant invoice routes are not yet tenant-scoped; production startup is intentionally disabled until the follow-up authorization tickets are complete.
+- Auth0 Organizations/OIDC is the selected identity model; merchant invoice routes and machine identity resolution are tenant-scoped. Production startup remains intentionally disabled until the remaining production-readiness tickets are complete.
 
 ## API quick reference
 

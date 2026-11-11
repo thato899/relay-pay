@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -74,6 +75,46 @@ export const auditEvents = pgTable(
   (table) => [
     index("audit_events_org_occurred_idx").on(table.organizationId, table.occurredAt),
     index("audit_events_resource_idx").on(table.resourceType, table.resourceId),
+  ],
+);
+
+export const devices = pgTable(
+  "devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    merchantId: text("merchant_id").notNull(),
+    deviceId: text("device_id").notNull(),
+    clientSubject: text("client_subject").notNull(),
+    name: text("name").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("devices_client_subject_unique").on(table.clientSubject),
+    uniqueIndex("devices_merchant_device_unique").on(table.merchantId, table.deviceId),
+    index("devices_merchant_enabled_idx").on(table.merchantId, table.enabled),
+  ],
+);
+
+export const deviceInvoiceOperations = pgTable(
+  "device_invoice_operations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "restrict" }),
+    operationId: text("operation_id").notNull(),
+    cycleCode: text("cycle_code").notNull(),
+    requestHash: text("request_hash").notNull(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("device_invoice_operations_device_op_unique").on(table.deviceId, table.operationId),
+    index("device_invoice_operations_invoice_idx").on(table.invoiceId),
   ],
 );
 

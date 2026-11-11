@@ -10,15 +10,18 @@ The API is designed provider-aware but protocol-standard: issuer, audience, and 
 
 ## Route access
 
-| Resource                                                       | Access                                                                                                                                        |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /healthz`, `GET /readyz`                                  | Public operational health only; no secrets or tenant data.                                                                                    |
-| `GET /v1/config`                                               | Public checkout-safe network label and public receiver address only.                                                                          |
-| `GET /v1/checkouts/:invoiceId`                                 | Public checkout capability; UUID must be unguessable and response must omit internal merchant data.                                           |
-| `GET /v1/invoices/:invoiceId`                                  | Authenticated and scoped to the verified organization.                                                                                        |
-| Merchant invoice list/create, receiver settings, audit history | Authenticated; scope every query and mutation to the verified organization.                                                                   |
-| Demo payment mutation                                          | Local demo only, explicitly enabled, rate-limited, and restricted to a valid open invoice capability. Must be disabled in production.         |
-| Device endpoints                                               | Separate machine-to-machine audience/scope; verify the token then map its subject to a registered merchant/device. Never use SPA credentials. |
+| Resource                                                       | Access                                                                                                                                                                |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz`, `GET /readyz`                                  | Public operational health only; no secrets or tenant data.                                                                                                            |
+| `GET /v1/config`                                               | Public checkout-safe network label and public receiver address only.                                                                                                  |
+| `GET /v1/checkouts/:invoiceId`                                 | Public checkout capability; UUID must be unguessable and response must omit internal merchant data.                                                                   |
+| `GET /v1/invoices/:invoiceId`                                  | Authenticated and scoped to the verified organization.                                                                                                                |
+| `POST /v1/device/invoices`                                     | Requires `devices:connect`; tenant/device identity comes from the verified subject's active server-side registration.                                                 |
+| Merchant invoice list/create, receiver settings, audit history | Authenticated; scope every query and mutation to the verified organization.                                                                                           |
+| Demo payment mutation                                          | Local demo only, explicitly enabled, rate-limited, and restricted to a valid open invoice capability. Must be disabled in production.                                 |
+| `GET /v1/device/context` and machine endpoints                 | Require the API audience and `devices:connect`; verify issuer/signature and map the token subject through the server-side device registry. Never use SPA credentials. |
+
+Merchant admins manage registrations with `devices:admin`. The registry enforces one merchant per machine token subject. Disabling a registration is the revocation mechanism and is checked from the database for each machine request. Credential rotation registers a new subject before disabling the prior one. Local development may use `x-local-device-subject` only when OIDC is off and `NODE_ENV` is not production; production ignores this development path.
 
 ## Payment receiver limitation
 
@@ -26,7 +29,7 @@ The current prototype has one configured XRPL receiver shared by all invoices. M
 
 ## Audit and data handling
 
-Audit events record event ID, event type, timestamp, request/correlation ID, authenticated subject or explicit system actor, organization ID, resource type/ID, and safe metadata. Invoice creation, expiry, and payment confirmation are recorded in the same database transaction as the state change. Never record bearer tokens, client secrets, private keys, recovery phrases, or full authorization headers. Do not store unnecessary customer identity data in invoices.
+Audit events record event ID, event type, timestamp, request/correlation ID, authenticated subject or explicit system actor, organization ID, resource type/ID, and safe metadata. Invoice creation, expiry, payment confirmation, device registration, and device disablement are recorded in the same database transaction as the state change. Never record bearer tokens, client secrets, private keys, recovery phrases, or full authorization headers. Do not store unnecessary customer identity data in invoices.
 
 ## Deployment controls
 

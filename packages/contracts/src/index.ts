@@ -19,6 +19,20 @@ export const createInvoiceBodySchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const createMachineInvoiceBodySchema = Type.Object(
+  {
+    operationId: Type.String({ minLength: 1, maxLength: 120, pattern: "^[^\\s]+$" }),
+    cycleCode: Type.String({ minLength: 1, maxLength: 80, pattern: "^[A-Za-z0-9._-]+$" }),
+    amountXrp: Type.String({
+      description: "Exact XRP amount in decimal form, with up to six decimal places.",
+      maxLength: 18,
+      pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$",
+    }),
+    reference: Type.Optional(Type.String({ maxLength: 80 })),
+  },
+  { additionalProperties: false },
+);
+
 export const invoiceSchema = Type.Object({
   id: Type.String({ format: "uuid" }),
   amountXrp: Type.String(),
@@ -59,15 +73,48 @@ export const publicConfigSchema = Type.Object({
   merchantAddress: Type.String(),
 });
 
+export const registerDeviceBodySchema = Type.Object(
+  {
+    deviceId: Type.String({ minLength: 1, maxLength: 80, pattern: "^[A-Za-z0-9._-]+$" }),
+    clientSubject: Type.String({ minLength: 1, maxLength: 255, pattern: "^[^\\s]+$" }),
+    name: Type.String({ minLength: 1, maxLength: 120, pattern: "\\S" }),
+  },
+  { additionalProperties: false },
+);
+
+export const deviceSchema = Type.Object({
+  id: Type.String({ format: "uuid" }),
+  deviceId: Type.String(),
+  clientSubject: Type.String(),
+  name: Type.String(),
+  enabled: Type.Boolean(),
+  createdAt: Type.String({ format: "date-time" }),
+  updatedAt: Type.String({ format: "date-time" }),
+});
+
+export const deviceListSchema = Type.Object({ items: Type.Array(deviceSchema) });
+
+export const deviceIdentitySchema = Type.Object({
+  subject: Type.String(),
+  organizationId: Type.String(),
+  deviceId: Type.String({ format: "uuid" }),
+  deviceCode: Type.String(),
+});
+
 export const errorResponseSchema = Type.Object({
   error: Type.String(),
   message: Type.String(),
 });
 
 export type CreateInvoiceBody = Static<typeof createInvoiceBodySchema>;
+export type CreateMachineInvoiceBody = Static<typeof createMachineInvoiceBodySchema>;
 export type InvoiceStatus = (typeof invoiceStatuses)[number];
 export type PaymentMode = (typeof paymentModes)[number];
 export type InvoiceDto = Static<typeof invoiceSchema>;
 export type InvoiceListDto = Static<typeof invoiceListSchema>;
 export type PublicCheckoutDto = Static<typeof publicCheckoutSchema>;
 export type PublicConfigDto = Static<typeof publicConfigSchema>;
+export type RegisterDeviceBody = Static<typeof registerDeviceBodySchema>;
+export type DeviceDto = Static<typeof deviceSchema>;
+export type DeviceListDto = Static<typeof deviceListSchema>;
+export type DeviceIdentityDto = Static<typeof deviceIdentitySchema>;

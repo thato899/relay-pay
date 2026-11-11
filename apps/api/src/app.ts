@@ -3,21 +3,29 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import type { CreateInvoiceBody } from "@mmp/contracts";
+import type { CreateInvoiceBody, CreateMachineInvoiceBody } from "@mmp/contracts";
 import {
   createInvoiceBodySchema,
+  createMachineInvoiceBodySchema,
+  deviceIdentitySchema,
+  deviceListSchema,
+  deviceSchema,
   errorResponseSchema,
   invoiceListSchema,
   invoiceSchema,
   publicCheckoutSchema,
   publicConfigSchema,
+  registerDeviceBodySchema,
 } from "@mmp/contracts";
 import Fastify, { type FastifyInstance } from "fastify";
 import { Type } from "typebox";
 import { config } from "./config.js";
 import { pool } from "./db/client.js";
+import { requireDeviceIdentity } from "./modules/auth/device.js";
 import { requireMerchantIdentity } from "./modules/auth/oidc.js";
-import { InvoiceRepository } from "./modules/invoices/repository.js";
+import type { DeviceRow } from "./modules/devices/repository.js";
+import { DeviceRepository } from "./modules/devices/repository.js";
+import { DeviceOperationConflictError, InvoiceRepository } from "./modules/invoices/repository.js";
 import {
   InvoiceClosedError,
   InvoiceNotFoundError,
@@ -25,6 +33,22 @@ import {
   InvoiceValidationError,
 } from "./modules/invoices/service.js";
 import { XrplPaymentMonitor } from "./modules/payments/xrpl-payment-monitor.js";
+
+function toDeviceDto(device: DeviceRow) {
+  return {
+    id: device.id,
+    deviceId: device.deviceId,
+    clientSubject: device.clientSubject,
+    name: device.name,
+    enabled: device.enabled,
+    createdAt: device.createdAt.toISOString(),
+    updatedAt: device.updatedAt.toISOString(),
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+}
 
 export interface ApplicationContext {
   app: FastifyInstance;
@@ -38,9 +62,11 @@ export async function buildApplication(): Promise<ApplicationContext> {
     bodyLimit: 64 * 1024,
   });
   const repository = new InvoiceRepository();
+  const deviceRepository = new DeviceRepository();
   const service = new InvoiceService(repository, config.paymentMode);
   const monitor = new XrplPaymentMonitor(repository, app.log);
   app.decorateRequest("merchantIdentity", null);
+  app.decorateRequest("deviceIdentity", null);
 
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
@@ -75,6 +101,7 @@ export async function buildApplication(): Promise<ApplicationContext> {
         { name: "health", description: "Service and dependency health" },
         { name: "invoices", description: "Merchant checkout invoices" },
         { name: "auth", description: "Authenticated merchant identity" },
+        { name: "devices", description: "Merchant registration and machine identity" },
       ],
     },
   });
@@ -163,6 +190,170 @@ export async function buildApplication(): Promise<ApplicationContext> {
         });
       }
       return request.merchantIdentity;
+    },
+  );
+
+  app.get(
+    "/v1/devices",
+    {
+      preHandler: requireMerchantIdentity(["devices:admin"]),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        response: { 200: deviceListSchema, 401: errorResponseSchema, 403: errorResponseSchema },
+      },
+    },
+    async (request) => ({
+      items: (await deviceRepository.listForMerchant(request.merchantIdentity!.organizationId)).map(
+        toDeviceDto,
+      ),
+    }),
+  );
+
+  app.post<{ Body: import("@mmp/contracts").RegisterDeviceBody }>(
+    "/v1/devices",
+    {
+      preHandler: requireMerchantIdentity(["devices:admin"]),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        body: registerDeviceBodySchema,
+        response: {
+          201: deviceSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const identity = request.merchantIdentity!;
+      try {
+        const device = await deviceRepository.register(
+          {
+            ...request.body,
+            merchantId: identity.organizationId,
+            clientSubject: request.body.clientSubject.trim(),
+            deviceId: request.body.deviceId.trim(),
+            name: request.body.name.trim(),
+          },
+          {
+            actorSubject: identity.subject,
+            organizationId: identity.organizationId,
+            requestId: request.id,
+          },
+        );
+        return reply.code(201).send(toDeviceDto(device));
+      } catch (error) {
+        if (isUniqueViolation(error))
+          return reply.code(409).send({
+            error: "DEVICE_ALREADY_REGISTERED",
+            message: "That device ID or machine client subject is already registered.",
+          });
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/v1/devices/:id/disable",
+    {
+      preHandler: requireMerchantIdentity(["devices:admin"]),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+        response: {
+          200: deviceSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const identity = request.merchantIdentity!;
+      const device = await deviceRepository.disable(request.params.id, identity.organizationId, {
+        actorSubject: identity.subject,
+        organizationId: identity.organizationId,
+        requestId: request.id,
+      });
+      if (!device)
+        return reply
+          .code(404)
+          .send({ error: "DEVICE_NOT_FOUND", message: "Device not found or already disabled." });
+      return toDeviceDto(device);
+    },
+  );
+
+  app.get(
+    "/v1/device/context",
+    {
+      preHandler: requireDeviceIdentity(deviceRepository),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: deviceIdentitySchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!request.deviceIdentity)
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A registered machine identity is required.",
+        });
+      return request.deviceIdentity;
+    },
+  );
+
+  app.post<{ Body: CreateMachineInvoiceBody }>(
+    "/v1/device/invoices",
+    {
+      preHandler: requireDeviceIdentity(deviceRepository),
+      schema: {
+        tags: ["devices", "invoices"],
+        security: [{ bearerAuth: [] }],
+        body: createMachineInvoiceBodySchema,
+        response: {
+          200: invoiceSchema,
+          201: invoiceSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          409: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const identity = request.deviceIdentity;
+      if (!identity)
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A registered machine identity is required.",
+        });
+      try {
+        const result = await service.createForDevice(identity, request.body, {
+          actorSubject: identity.subject,
+          organizationId: identity.organizationId,
+          requestId: request.id,
+        });
+        return reply.code(result.created ? 201 : 200).send(result.invoice);
+      } catch (error) {
+        if (error instanceof InvoiceValidationError)
+          return reply.code(400).send({ error: "INVALID_AMOUNT", message: error.message });
+        if (error instanceof DeviceOperationConflictError)
+          return reply.code(409).send({ error: "OPERATION_ID_REUSED", message: error.message });
+        throw error;
+      }
     },
   );
 

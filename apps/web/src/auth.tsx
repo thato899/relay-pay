@@ -9,7 +9,7 @@ const audience = import.meta.env.VITE_AUTH0_AUDIENCE?.trim();
 const defaultOrganization = import.meta.env.VITE_AUTH0_ORGANIZATION?.trim();
 const configured = Boolean(domain && clientId && audience);
 const partiallyConfigured = Boolean(domain || clientId || audience) && !configured;
-const scopes = "openid profile email invoices:read invoices:write";
+const scopes = "openid profile email invoices:read invoices:write devices:admin";
 
 interface AuthContextValue {
   client: Auth0Client | null;

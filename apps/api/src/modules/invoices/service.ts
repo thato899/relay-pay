@@ -1,8 +1,20 @@
-import { randomInt, randomUUID } from "node:crypto";
-import type { CreateInvoiceBody, InvoiceDto, PaymentMode, PublicCheckoutDto } from "@mmp/contracts";
+import { createHash, randomInt, randomUUID } from "node:crypto";
+import type {
+  CreateInvoiceBody,
+  CreateMachineInvoiceBody,
+  InvoiceDto,
+  PaymentMode,
+  PublicCheckoutDto,
+} from "@mmp/contracts";
 import { xrpToDrops } from "xrpl";
 import { config } from "../../config.js";
-import type { AuditContext, InvoiceRepository, InvoiceRow } from "./repository.js";
+import type { DeviceIdentity } from "../auth/oidc.js";
+import {
+  type AuditContext,
+  DeviceOperationConflictError,
+  type InvoiceRepository,
+  type InvoiceRow,
+} from "./repository.js";
 
 export class InvoiceNotFoundError extends Error {
   constructor() {
@@ -23,6 +35,17 @@ export class InvoiceClosedError extends Error {
     super(`Invoice is already ${status}.`);
     this.name = "InvoiceClosedError";
   }
+}
+
+function isDestinationTagConflict(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505" &&
+    "constraint" in error &&
+    error.constraint === "invoices_destination_tag_unique"
+  );
 }
 
 export class InvoiceService {
@@ -77,6 +100,63 @@ export class InvoiceService {
 
     if (!row) throw new Error("Could not allocate a unique destination tag");
     return this.toDto(row);
+  }
+
+  async createForDevice(
+    identity: DeviceIdentity,
+    input: CreateMachineInvoiceBody,
+    audit: AuditContext,
+  ): Promise<{ invoice: InvoiceDto; created: boolean }> {
+    let amountDrops: string;
+    try {
+      amountDrops = xrpToDrops(input.amountXrp);
+    } catch {
+      throw new InvoiceValidationError(
+        "Enter a positive XRP amount with up to six decimal places.",
+      );
+    }
+    const amount = BigInt(amountDrops);
+    if (amount < 1n || amount > 1_000_000_000_000n) {
+      throw new InvoiceValidationError("Amount must be between 0.000001 and 1,000,000 XRP.");
+    }
+
+    const requestHash = createHash("sha256")
+      .update(JSON.stringify([input.cycleCode, input.amountXrp, input.reference?.trim() || null]))
+      .digest("hex");
+    const expiresAt = new Date(Date.now() + 30 * 60_000);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const result = await this.repository.createForDeviceOperation(
+          {
+            id: randomUUID(),
+            merchantId: identity.organizationId,
+            amountXrp: input.amountXrp,
+            amountDrops,
+            reference: input.reference?.trim() || null,
+            destinationAddress: config.merchantAddress,
+            destinationTag: randomInt(1, 0xffff_ffff),
+            network: this.mode,
+            expiresAt,
+          },
+          {
+            deviceId: identity.deviceId,
+            operationId: input.operationId,
+            cycleCode: input.cycleCode,
+            requestHash,
+          },
+          audit,
+        );
+        return {
+          invoice: await this.getForMerchant(result.row.id, identity.organizationId, audit),
+          created: result.created,
+        };
+      } catch (error) {
+        if (error instanceof DeviceOperationConflictError) throw error;
+        if (attempt === 2 || !isDestinationTagConflict(error)) throw error;
+      }
+    }
+    throw new Error("Could not allocate a unique destination tag");
   }
 
   async getForMerchant(id: string, merchantId: string, audit?: AuditContext): Promise<InvoiceDto> {
