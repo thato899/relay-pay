@@ -15,3 +15,4 @@ MMP-013 machine invoice and operation records.
 - [ ] Only a validated paid invoice can enter start requested.
 - [ ] A repeated acknowledgement cannot start or record the same cycle twice.
 - [ ] Polling limits, retry interval, and expiry behavior are documented and enforced.
+- [ ] Machine payments are gated by a human-owned spending cap and approved-payee policy; device credentials cannot raise the cap. Implement the policy in MMP-021 before enabling device spending.

@@ -14,8 +14,14 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((value) => value === "true"),
-  OIDC_ISSUER: z.preprocess((value) => (value === "" ? undefined : value), z.string().url().optional()),
-  OIDC_AUDIENCE: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional()),
+  OIDC_ISSUER: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
+  OIDC_AUDIENCE: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(1).optional(),
+  ),
   OIDC_ORGANIZATION_CLAIM: z.string().min(1).default("org_id"),
   MERCHANT_XRPL_ADDRESS: z.string().default(""),
   XRPL_WS_URL: z.string().url().default("wss://s.altnet.rippletest.net:51233"),

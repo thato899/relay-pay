@@ -24,6 +24,20 @@ Build a demoable, QR-first merchant and machine payment flow for a small merchan
 - Final submission is due **13 November at 23:59 SAST** and requires a project title, public GitHub repository with README, and demo video URL. Judging is **14 November** in Cape Town.
 - Team size is 1–4. The event guide lists team finalization on 6 November; verify status with the organizer if a team is not already set.
 
+## Workshop alignment and product gaps
+
+The 6 November Merchant & Machine Payments workshop and its resource guide accept any chain or payment rail. They emphasize a public-testnet payment that completes end to end, automatic order matching, an obvious merchant/operator view, and a human-enforced machine spending cap. The workshop also asks for a named customer, a credible go-to-market path, and an honest cash-out story.
+
+Relay Pay's current XRPL Testnet path is a viable chain-specific route for the required public-testnet payment: the server matches validated payments using destination, exact drops, and a unique destination tag. Keep XRPL as the current prototype rail; do not add Base/USDC or x402/MPP solely because the workshop demonstrates them. Revisit protocol/rail choice only if the machine use case requires payment per request or a stablecoin denomination. Treat sample addresses, token contracts, facilitator URLs, and code snippets in the workshop PDFs as examples to verify before use, never as production credentials or instructions.
+
+Remaining workshop-derived product gaps:
+
+- [ ] Complete a real payer-to-merchant XRPL Testnet transaction and capture a short demo; demo-mode simulation does not satisfy this.
+- [ ] Define and enforce a human-owned machine spending limit that device credentials cannot increase, plus an approved payee and a revocation path.
+- [ ] Name and validate a target merchant/operator; explain fees against cash/mobile money and the route from received value to rand or the next supplier.
+- [ ] Show how wrong-amount, late, and refund cases are surfaced without relying on a block explorer.
+- [ ] Keep the hackathon demo at or below three minutes and show the real payment and automatic match.
+
 ## MVP scope
 
 ### P0 — must ship
@@ -39,6 +53,7 @@ Build a demoable, QR-first merchant and machine payment flow for a small merchan
 - [x] Start the fresh product implementation within the active virtual build window.
 - [ ] Prepare and submit the checkpoint evidence; the checkpoint date has passed, so check whether late submission is accepted.
 - [ ] Configure an XRPL Testnet merchant receiver and demonstrate a real wallet-to-merchant payment.
+- [ ] Record and present the confirmed invoice without requiring anyone to inspect a block explorer manually.
 - [ ] Confirm the event team record and contact the organizer about the missed checkpoint if needed.
 - [ ] Deploy the demo and validate the complete QR → wallet → validated-ledger flow.
 
@@ -48,6 +63,7 @@ Build a demoable, QR-first merchant and machine payment flow for a small merchan
 - [x] Design a low-connectivity device mode for an unattended washer; implementation tickets MMP-013–MMP-015 are in the Kanban backlog.
 - [ ] Add receipt export and merchant reconciliation history.
 - [ ] Complete Auth0 OIDC, merchant isolation, audit, and device-identity tickets MMP-016–MMP-020 before any public deployment.
+- [ ] Add an operator-owned spending cap and approved-payee policy before enabling device payments (MMP-021).
 - [ ] Add automated domain and adapter tests once test-writing is explicitly in scope.
 
 ## Stories and acceptance criteria
@@ -89,4 +105,4 @@ As a builder, I can start the product from a clean checkout and demonstrate the 
 
 ## Work tracking
 
-The `tickets/board.md` file is the current Kanban view. Individual tickets in that folder hold the outcome, acceptance criteria, dependencies, and unblock conditions. This roadmap defines scope and sequencing; the board tracks day-to-day execution.
+The `tickets/board.md` file is the current Kanban view. Individual tickets in that folder hold the outcome, acceptance criteria, dependencies, and unblock conditions. This roadmap defines scope and sequencing; the board tracks day-to-day execution. See [`workshop-alignment.md`](workshop-alignment.md) for requirements distilled from the track workshop resources and the rationale for retaining XRPL as the current prototype rail.

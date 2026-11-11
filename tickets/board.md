@@ -25,13 +25,14 @@
 
 ## Backlog
 
-| ID                                        | Ticket                                                 | Priority | Size | Depends on                                        |
-| ----------------------------------------- | ------------------------------------------------------ | -------- | ---- | ------------------------------------------------- |
-| [MMP-009](MMP-009-final-submission.md)    | Prepare the final hackathon submission                 | P0       | M    | Demo walkthrough and public repository readiness. |
-| [MMP-013](MMP-013-machine-invoice-api.md) | Add authenticated, idempotent machine invoice creation | P1       | M    | MMP-017 and MMP-020.                              |
-| [MMP-014](MMP-014-machine-state.md)       | Add safe machine payment and cycle state tracking      | P1       | M    | MMP-013.                                          |
-| [MMP-015](MMP-015-machine-kiosk.md)       | Build a machine checkout simulator                     | P1       | M    | MMP-013 and MMP-014.                              |
-| [MMP-020](MMP-020-device-identity.md)     | Register machine-to-merchant identity                  | P1       | S    | MMP-016.                                          |
+| ID                                           | Ticket                                                 | Priority | Size | Depends on                                        |
+| -------------------------------------------- | ------------------------------------------------------ | -------- | ---- | ------------------------------------------------- |
+| [MMP-009](MMP-009-final-submission.md)       | Prepare the final hackathon submission                 | P0       | M    | Demo walkthrough and public repository readiness. |
+| [MMP-013](MMP-013-machine-invoice-api.md)    | Add authenticated, idempotent machine invoice creation | P1       | M    | MMP-017 and MMP-020.                              |
+| [MMP-014](MMP-014-machine-state.md)          | Add safe machine payment and cycle state tracking      | P1       | M    | MMP-013.                                          |
+| [MMP-015](MMP-015-machine-kiosk.md)          | Build a machine checkout simulator                     | P1       | M    | MMP-013 and MMP-014.                              |
+| [MMP-020](MMP-020-device-identity.md)        | Register machine-to-merchant identity                  | P1       | S    | MMP-016.                                          |
+| [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets    | P1       | M    | MMP-014 and MMP-020.                              |
 
 ## Done
 

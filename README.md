@@ -2,6 +2,8 @@
 
 Relay Pay is a new QR-first merchant checkout prototype for the **Merchant & Machine Payments** track at the Node Engine Hackathon. It lets a small merchant create an exact XRP checkout, show a customer QR, and reconcile a payment only after a matching XRPL Testnet transaction is validated.
 
+The team's interpretation of the track workshop and its resulting product gaps are recorded in [workshop alignment](workshop-alignment.md). The project keeps XRPL as its current testnet rail; workshop examples such as Base Sepolia USDC, x402, and MPP are options rather than required stack choices.
+
 ## Why this fits the track
 
 The event track is for onchain infrastructure that supports merchant, e-commerce, and point-of-sale payments. This MVP focuses on a merchant countertop flow: amount and order reference → QR checkout → customer wallet payment → automatic ledger confirmation. The BuilderBase event guide says eligible submissions must be new projects; this repository is being built from scratch during the published virtual build phase.
