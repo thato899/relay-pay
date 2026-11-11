@@ -11,7 +11,7 @@ ENV VITE_AUTH0_DOMAIN=$VITE_AUTH0_DOMAIN \
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@12.3.4 --activate
+RUN npm install --global pnpm@12.3.4
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/contracts/package.json packages/contracts/package.json

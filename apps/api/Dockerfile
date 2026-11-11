@@ -2,7 +2,7 @@ FROM node:20.11-alpine AS build
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@12.3.4 --activate
+RUN npm install --global pnpm@12.3.4
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/contracts/package.json packages/contracts/package.json
@@ -18,7 +18,7 @@ FROM node:20.11-alpine AS runtime
 ENV NODE_ENV=production
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@12.3.4 --activate \
+RUN npm install --global pnpm@12.3.4 \
   && addgroup -S relay && adduser -S relay -G relay
 
 COPY --from=build --chown=relay:relay /app/package.json ./package.json
