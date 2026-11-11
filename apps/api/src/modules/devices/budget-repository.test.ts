@@ -96,20 +96,31 @@ describe("device spending budgets", () => {
     return invoicesRepository.createForDeviceOperation(input, operation, audit(merchantId));
   }
 
-  it("accepts the exact per-cycle and rolling-window boundary, then denies one drop over", async () => {
+  it("accepts the per-cycle boundary and denies an amount one drop over it", async () => {
     const { merchantId, device } = await createFixture({
       maxCycleDrops: "1000000",
-      windowBudgetDrops: "1000000",
+      windowBudgetDrops: "3000000",
     });
     const allowed = await reserve(merchantId, device.id, "1000000");
     assert.ok("row" in allowed);
 
-    const denied = await reserve(merchantId, device.id, "1");
+    const denied = await reserve(merchantId, device.id, "1000001");
     assert.deepEqual(denied, { denied: "cycle_limit_exceeded" });
 
     const overview = await budgetsRepository.read(merchantId, device.id);
     assert.equal(overview?.reservedDrops, "1000000");
     assert.equal(overview?.deniedCount, 1);
+  });
+
+  it("denies one drop beyond the cumulative rolling-window boundary", async () => {
+    const { merchantId, device } = await createFixture({
+      maxCycleDrops: "2000000",
+      windowBudgetDrops: "1000000",
+    });
+    const allowed = await reserve(merchantId, device.id, "1000000");
+    assert.ok("row" in allowed);
+    const denied = await reserve(merchantId, device.id, "1");
+    assert.deepEqual(denied, { denied: "window_limit_exceeded" });
   });
 
   it("serializes concurrent reservations so their sum cannot exceed the window", async () => {
