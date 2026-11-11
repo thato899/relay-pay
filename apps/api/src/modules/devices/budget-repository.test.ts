@@ -72,7 +72,7 @@ describe("device spending budgets", () => {
       amountDrops,
       reference: null,
       destinationAddress: "",
-      destinationTag: randomInt(1, 0xffff_ffff),
+      destinationTag: randomInt(1, 0x8000_0000),
       network: "demo",
       expiresAt: new Date(Date.now() + 60_000),
     };
