@@ -1,12 +1,18 @@
 # MMP-009 — Prepare the final hackathon submission
 
-- **Status:** Backlog
+- **Status:** In Progress (submission brief drafted; demo evidence blocked)
 - **Priority / size:** P0 / M
 - **Outcome:** BuilderBase receives a complete, reviewable project submission before the published cutoff.
 
 ## Dependencies
 
-MMP-006 local demo walkthrough; public repository review; demo recording.
+MMP-006 local demo walkthrough; MMP-007 real Testnet payment walkthrough; public repository review; demo recording. Draft messaging and source review can proceed while the environment dependencies are blocked.
+
+## Progress
+
+- Drafted [`submission-draft.md`](../submission-draft.md) with the product pitch, explicitly unvalidated target-user hypothesis, honest fee and settlement discussion, machine controls, and evidence checklist.
+- Official Yoco, Standard Bank, and XRPL fee/reserve pages checked 11 November 2026 and linked in the draft.
+- Final demo video and BuilderBase submission remain blocked on MMP-006 and MMP-007.
 
 ## Acceptance criteria
 

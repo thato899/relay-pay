@@ -2,7 +2,13 @@
 
 **Updated:** 11 November 2026 (SAST)  
 **WIP limit:** 1 In Progress ticket  
-**Current WIP:** 0
+**Current WIP:** 1
+
+## In Progress
+
+| ID                                     | Ticket                                 | Priority | Size | Current slice                                                        |
+| -------------------------------------- | -------------------------------------- | -------- | ---- | -------------------------------------------------------------------- |
+| [MMP-009](MMP-009-final-submission.md) | Prepare the final hackathon submission | P0       | M    | Submission brief drafted; verified demo/video and receipt still open. |
 
 ## Ready
 
@@ -21,7 +27,7 @@
 
 | ID                                     | Ticket                                 | Priority | Size | Depends on                                        |
 | -------------------------------------- | -------------------------------------- | -------- | ---- | ------------------------------------------------- |
-| [MMP-009](MMP-009-final-submission.md) | Prepare the final hackathon submission | P0       | M    | Demo walkthrough and public repository readiness. |
+| — | — | — | — | — |
 
 ## Done
 
