@@ -1,6 +1,6 @@
 # MMP-021 — Enforce operator-controlled device spending budgets
 
-- **Status:** Backlog
+- **Status:** Ready
 - **Priority / size:** P1 / M
 - **Outcome:** A registered machine can spend only within a human-owned budget and approved-payee policy.
 

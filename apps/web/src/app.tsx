@@ -12,12 +12,16 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  Play,
   Plus,
   QrCode,
+  RefreshCw,
+  RotateCcw,
   ScanLine,
   ShieldCheck,
   Smartphone,
   WalletCards,
+  WifiOff,
   X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -210,9 +214,9 @@ function MerchantDashboard() {
             <QrCode size={17} />
             Checkout links
           </a>
-          <a className="nav-item" href="#devices">
+          <a className="nav-item" href="#machine-simulator">
             <Smartphone size={17} />
-            Devices<span className="soon-label">SOON</span>
+            Washer simulator
           </a>
         </nav>
 
@@ -740,6 +744,8 @@ function MerchantDashboard() {
             </div>
           </section>
 
+          <MachineSimulator config={config} />
+
           <footer className="page-footer">
             <span>
               RELAY PAY <span>·</span> MERCHANT & MACHINE PAYMENTS PROTOTYPE
@@ -751,6 +757,286 @@ function MerchantDashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+const WASH_CYCLES = [
+  { id: "quick", name: "Quick wash", duration: "25 min", amountXrp: "0.800000" },
+  { id: "standard", name: "Standard wash", duration: "40 min", amountXrp: "1.250000" },
+  { id: "heavy", name: "Heavy wash", duration: "55 min", amountXrp: "1.750000" },
+] as const;
+
+function MachineSimulator({ config }: { config: PublicConfigDto | null }) {
+  const [machineId, setMachineId] = useState("washer-01");
+  const [cycleId, setCycleId] = useState<(typeof WASH_CYCLES)[number]["id"]>("standard");
+  const [invoice, setInvoice] = useState<InvoiceDto | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [offline, setOffline] = useState(!navigator.onLine);
+  const [error, setError] = useState("");
+
+  const cycle = WASH_CYCLES.find((item) => item.id === cycleId) ?? WASH_CYCLES[1];
+  const cycleStartEligible = invoice?.status === "paid" && invoice.network === "xrpl-testnet";
+
+  useEffect(() => {
+    const updateNetwork = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", updateNetwork);
+    window.addEventListener("offline", updateNetwork);
+    return () => {
+      window.removeEventListener("online", updateNetwork);
+      window.removeEventListener("offline", updateNetwork);
+    };
+  }, []);
+
+  const refresh = useCallback(async () => {
+    if (!invoice || invoice.status !== "pending") return;
+    try {
+      setInvoice(await api.getInvoice(invoice.id));
+      setOffline(false);
+      setError("");
+    } catch (cause) {
+      setOffline(!navigator.onLine);
+      setError(cause instanceof Error ? cause.message : "Could not refresh cycle payment status.");
+    }
+  }, [invoice]);
+
+  useEffect(() => {
+    if (!invoice || invoice.status !== "pending") return;
+    const timer = window.setInterval(() => void refresh(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [invoice, refresh]);
+
+  async function prepareCycle(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (invoice) return;
+    setBusy(true);
+    setError("");
+    try {
+      const operationId = crypto.randomUUID();
+      const nextInvoice = await api.createInvoice({
+        amountXrp: cycle.amountXrp,
+        reference: `${machineId} ${cycle.name} ${operationId.slice(0, 8)}`,
+      });
+      setInvoice(nextInvoice);
+      setOffline(false);
+    } catch (cause) {
+      setOffline(!navigator.onLine);
+      setError(cause instanceof Error ? cause.message : "Could not prepare this washer checkout.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function simulatePayment() {
+    if (!invoice || invoice.status !== "pending") return;
+    setBusy(true);
+    setError("");
+    try {
+      setInvoice(await api.simulatePayment(invoice.id));
+      setOffline(false);
+    } catch (cause) {
+      setOffline(!navigator.onLine);
+      setError(cause instanceof Error ? cause.message : "Could not simulate this payment.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resetCycle() {
+    setInvoice(null);
+    setError("");
+  }
+
+  return (
+    <section className="panel machine-simulator" id="machine-simulator">
+      <div className="table-heading machine-heading">
+        <div>
+          <span className="section-number">04</span>
+          <h2>Washer checkout simulator</h2>
+        </div>
+        <span className="simulator-label">SIMULATOR · NO HARDWARE CONTROL</span>
+      </div>
+      <div className="machine-simulator-grid">
+        <form className="machine-controls" onSubmit={(event) => void prepareCycle(event)}>
+          <p>
+            Choose a machine and wash cycle. The checkout uses the same invoice and payment-status
+            flow.
+          </p>
+          <label htmlFor="machine-select">Machine</label>
+          <select
+            id="machine-select"
+            value={machineId}
+            onChange={(event) => setMachineId(event.target.value)}
+            disabled={Boolean(invoice)}
+          >
+            <option value="washer-01">Washer 01 · Front load</option>
+            <option value="washer-02">Washer 02 · Large drum</option>
+          </select>
+          <label htmlFor="cycle-select">Wash cycle</label>
+          <select
+            id="cycle-select"
+            value={cycleId}
+            onChange={(event) => setCycleId(event.target.value as typeof cycleId)}
+            disabled={Boolean(invoice)}
+          >
+            {WASH_CYCLES.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name} · {option.duration} · {option.amountXrp} XRP
+              </option>
+            ))}
+          </select>
+          <div className="machine-price">
+            <span>EXACT PRICE</span>
+            <strong>
+              {cycle.amountXrp} <small>XRP</small>
+            </strong>
+            <span>
+              {cycle.name} · {cycle.duration}
+            </span>
+          </div>
+          {!invoice ? (
+            <button
+              className="button button-dark create-button"
+              type="submit"
+              disabled={busy || !config}
+            >
+              {busy ? <span className="spinner" /> : <QrCode size={17} />}
+              {busy ? "Preparing checkout…" : "Prepare washer checkout"}
+            </button>
+          ) : (
+            <button className="text-button machine-reset" type="button" onClick={resetCycle}>
+              <RotateCcw size={14} /> Start a new simulated purchase
+            </button>
+          )}
+          <div className="machine-safety-note">
+            <ShieldCheck size={15} /> No physical washer is connected. Cycle start remains disabled.
+          </div>
+        </form>
+
+        <div className="machine-checkout">
+          {offline && (
+            <div className="machine-connectivity offline">
+              <WifiOff size={15} /> Offline · payment status cannot be refreshed. The existing
+              invoice is kept.
+            </div>
+          )}
+          {!offline && (
+            <div className="machine-connectivity">
+              <span className="table-foot-dot" /> Connected · retrying the same checkout is safe.
+            </div>
+          )}
+          {error && (
+            <div className="notice notice-error machine-error" role="alert">
+              {error}
+            </div>
+          )}
+          {invoice ? (
+            <>
+              <div className="machine-checkout-top">
+                <div>
+                  <span className="machine-kicker">
+                    {machineId.toUpperCase()} · {cycle.name.toUpperCase()}
+                  </span>
+                  <strong>{invoice.amountXrp} XRP</strong>
+                </div>
+                <StatusBadge status={invoice.status} />
+              </div>
+              <div className="machine-checkout-body">
+                {invoice.status === "pending" ? (
+                  <QRCodeSVG
+                    value={invoice.checkoutUrl}
+                    size={152}
+                    bgColor="#fff"
+                    fgColor="#152427"
+                    level="M"
+                  />
+                ) : invoice.status === "paid" ? (
+                  <span
+                    className={`machine-state-icon ${cycleStartEligible ? "ready" : "simulated"}`}
+                  >
+                    {cycleStartEligible ? <Play size={29} /> : <CheckCircle2 size={29} />}
+                  </span>
+                ) : (
+                  <span className="machine-state-icon expired">
+                    <Clock3 size={29} />
+                  </span>
+                )}
+                <div className="machine-payment-copy">
+                  <strong>
+                    {invoice.status === "paid"
+                      ? cycleStartEligible
+                        ? "Payment validated"
+                        : "Demo payment simulated"
+                      : invoice.status === "expired"
+                        ? "Checkout expired"
+                        : "Scan to pay"}
+                  </strong>
+                  <span>
+                    {invoice.status === "paid"
+                      ? cycleStartEligible
+                        ? "A validated Testnet payment makes this cycle eligible. Hardware remains disabled until operator budgets are enforced."
+                        : "This is a local simulation only. It does not validate an onchain payment and cannot start a cycle."
+                      : invoice.status === "expired"
+                        ? "This invoice expired. Create a new purchase to try again."
+                        : "Scan the QR to open the hosted checkout. The simulator keeps this invoice for retries."}
+                  </span>
+                </div>
+              </div>
+              <div className="machine-state-row">
+                <span>SIMULATED CYCLE STATE</span>
+                <strong className={cycleStartEligible ? "state-ready" : ""}>
+                  {cycleStartEligible
+                    ? "Ready · hardware start gated"
+                    : invoice.status === "paid"
+                      ? "Paid in demo · no start"
+                      : invoice.status === "expired"
+                        ? "Expired · stopped"
+                        : "Awaiting payment · stopped"}
+                </strong>
+              </div>
+              <div className="machine-actions">
+                <a
+                  className="text-button"
+                  href={invoice.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open hosted checkout <ExternalLink size={14} />
+                </a>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => void refresh()}
+                  disabled={busy}
+                >
+                  <RefreshCw size={14} /> Retry status
+                </button>
+              </div>
+              {config?.mode === "demo" && invoice.status === "pending" && (
+                <button
+                  className="demo-pay-button machine-demo-pay"
+                  type="button"
+                  onClick={() => void simulatePayment()}
+                  disabled={busy}
+                >
+                  <CheckCircle2 size={16} /> Simulate payment <span>DEMO ONLY</span>
+                </button>
+              )}
+              <small className="machine-invoice-id">
+                Invoice {clipId(invoice.id)} · retries reuse this invoice
+              </small>
+            </>
+          ) : (
+            <div className="machine-empty">
+              <span className="empty-qr">
+                <Smartphone size={34} />
+              </span>
+              <strong>Washer is waiting</strong>
+              <span>Prepare a checkout to display the customer QR and payment state.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

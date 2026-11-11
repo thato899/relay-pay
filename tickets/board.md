@@ -4,17 +4,12 @@
 **WIP limit:** 1 In Progress ticket  
 **Current WIP:** 0
 
-## In Progress
-
-| ID                                  | Ticket                                            | Priority | Size |
-| ----------------------------------- | ------------------------------------------------- | -------- | ---- |
-| [MMP-014](MMP-014-machine-state.md) | Add safe machine payment and cycle state tracking | P1       | M    |
-
 ## Ready
 
-| ID                                  | Ticket                             | Priority | Size |
-| ----------------------------------- | ---------------------------------- | -------- | ---- |
-| [MMP-015](MMP-015-machine-kiosk.md) | Build a machine checkout simulator | P1       | M    |
+| ID                                           | Ticket                                              | Priority | Size |
+| -------------------------------------------- | --------------------------------------------------- | -------- | ---- |
+| [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets | P1       | M    |
+
 ## Blocked
 
 | ID                                                | Ticket                              | Priority | Size | Waiting on                                                                         |
@@ -25,10 +20,9 @@
 
 ## Backlog
 
-| ID                                           | Ticket                                              | Priority | Size | Depends on                                        |
-| -------------------------------------------- | --------------------------------------------------- | -------- | ---- | ------------------------------------------------- |
-| [MMP-009](MMP-009-final-submission.md)       | Prepare the final hackathon submission              | P0       | M    | Demo walkthrough and public repository readiness. |
-| [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets | P1       | M    | MMP-014 and MMP-020.                              |
+| ID                                     | Ticket                                 | Priority | Size | Depends on                                        |
+| -------------------------------------- | -------------------------------------- | -------- | ---- | ------------------------------------------------- |
+| [MMP-009](MMP-009-final-submission.md) | Prepare the final hackathon submission | P0       | M    | Demo walkthrough and public repository readiness. |
 
 ## Done
 
@@ -49,3 +43,4 @@
 | [MMP-020](MMP-020-device-identity.md)         | Register machine-to-merchant identity                   | P1       | S    |
 | [MMP-013](MMP-013-machine-invoice-api.md)     | Add authenticated, idempotent machine invoice creation  | P1       | M    |
 | [MMP-014](MMP-014-machine-state.md)           | Add safe machine payment and cycle state tracking       | P1       | M    |
+| [MMP-015](MMP-015-machine-kiosk.md)           | Build a machine checkout simulator                      | P1       | M    |

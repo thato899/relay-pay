@@ -70,6 +70,10 @@ These are follow-up implementation tickets, not claims about current behavior:
 - Explicit state machine: `awaiting_payment → paid → start_requested → started`, with `expired` and `start_unknown` recovery states.
 - Operator-owned spending cap and approved-payee policy before device cycle starts can be enabled (MMP-021).
 
+## Simulator
+
+The merchant console includes a browser-only washer checkout simulator. It creates a hosted invoice at the selected fixed cycle price, shows the checkout QR, and polls invoice status. A demo-mode confirmation is labeled simulated and does not indicate a cycle can start. A paid XRPL Testnet invoice shows cycle eligibility, while physical start remains disabled until MMP-021 enforces operator-owned budgets. The simulator uses no device credential and controls no physical equipment.
+
 ## Prototype boundaries
 
 - Testnet only; do not use real funds or attach physical equipment.

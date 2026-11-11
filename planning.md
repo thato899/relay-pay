@@ -64,7 +64,7 @@ Remaining workshop-derived product gaps:
 - [x] Implement registered-device invoice creation with replay-safe operation IDs (MMP-013).
 - [ ] Add receipt export and merchant reconciliation history.
 - [x] Complete Auth0 OIDC, merchant isolation, audit, and device-identity tickets MMP-016–MMP-020 before any public deployment.
-- [ ] Build the browser machine checkout simulator (MMP-015).
+- [x] Build the browser machine checkout simulator (MMP-015).
 - [ ] Add an operator-owned spending cap and approved-payee policy before enabling device cycle starts (MMP-021).
 - [ ] Add automated domain and adapter tests once test-writing is explicitly in scope.
 
