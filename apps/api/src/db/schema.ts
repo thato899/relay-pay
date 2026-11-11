@@ -14,6 +14,14 @@ import {
 
 export const invoiceStatusEnum = pgEnum("invoice_status", ["pending", "paid", "expired"] as const);
 export const networkEnum = pgEnum("payment_network", ["demo", "xrpl-testnet"] as const);
+export const machineCycleStateEnum = pgEnum("machine_cycle_state", [
+  "awaiting_payment",
+  "paid",
+  "start_requested",
+  "started",
+  "expired",
+  "start_unknown",
+] as const);
 
 export const invoices = pgTable(
   "invoices",
@@ -115,6 +123,30 @@ export const deviceInvoiceOperations = pgTable(
   (table) => [
     uniqueIndex("device_invoice_operations_device_op_unique").on(table.deviceId, table.operationId),
     index("device_invoice_operations_invoice_idx").on(table.invoiceId),
+  ],
+);
+
+export const machineCycles = pgTable(
+  "machine_cycles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "restrict" }),
+    operationId: text("operation_id").notNull(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "restrict" }),
+    state: machineCycleStateEnum("state").notNull().default("awaiting_payment"),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    pollCount: integer("poll_count").notNull().default(0),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("machine_cycles_device_operation_unique").on(table.deviceId, table.operationId),
+    uniqueIndex("machine_cycles_invoice_unique").on(table.invoiceId),
+    index("machine_cycles_device_updated_idx").on(table.deviceId, table.updatedAt),
   ],
 );
 

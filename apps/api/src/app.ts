@@ -13,6 +13,8 @@ import {
   errorResponseSchema,
   invoiceListSchema,
   invoiceSchema,
+  machineCycleAcknowledgementSchema,
+  machineCycleSchema,
   publicCheckoutSchema,
   publicConfigSchema,
   registerDeviceBodySchema,
@@ -32,6 +34,12 @@ import {
   InvoiceService,
   InvoiceValidationError,
 } from "./modules/invoices/service.js";
+import {
+  MACHINE_CYCLE_POLL_INTERVAL_SECONDS,
+  MachineCycleRepository,
+  type MachineCycleRow,
+  type MachineInvoiceRow,
+} from "./modules/machine-cycles/repository.js";
 import { XrplPaymentMonitor } from "./modules/payments/xrpl-payment-monitor.js";
 
 function toDeviceDto(device: DeviceRow) {
@@ -50,6 +58,22 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 }
 
+function toMachineCycleDto(cycle: MachineCycleRow, invoice: MachineInvoiceRow) {
+  return {
+    deviceId: cycle.deviceId,
+    operationId: cycle.operationId,
+    invoiceId: invoice.id,
+    state: cycle.state,
+    invoiceStatus: invoice.status,
+    amountXrp: invoice.amountXrp,
+    network: invoice.network,
+    expiresAt: invoice.expiresAt.toISOString(),
+    paidAt: invoice.paidAt?.toISOString() ?? null,
+    transactionHash: invoice.transactionHash,
+    pollIntervalSeconds: MACHINE_CYCLE_POLL_INTERVAL_SECONDS,
+  };
+}
+
 export interface ApplicationContext {
   app: FastifyInstance;
   monitor: XrplPaymentMonitor;
@@ -63,6 +87,7 @@ export async function buildApplication(): Promise<ApplicationContext> {
   });
   const repository = new InvoiceRepository();
   const deviceRepository = new DeviceRepository();
+  const machineCycleRepository = new MachineCycleRepository();
   const service = new InvoiceService(repository, config.paymentMode);
   const monitor = new XrplPaymentMonitor(repository, app.log);
   app.decorateRequest("merchantIdentity", null);
@@ -354,6 +379,179 @@ export async function buildApplication(): Promise<ApplicationContext> {
           return reply.code(409).send({ error: "OPERATION_ID_REUSED", message: error.message });
         throw error;
       }
+    },
+  );
+
+  app.get<{ Params: { operationId: string } }>(
+    "/v1/device/cycles/:operationId",
+    {
+      preHandler: requireDeviceIdentity(deviceRepository),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ operationId: Type.String({ minLength: 1, maxLength: 120 }) }),
+        response: {
+          200: machineCycleSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          429: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const identity = request.deviceIdentity;
+      if (!identity)
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A registered machine identity is required.",
+        });
+      const result = await machineCycleRepository.readForDevice(
+        identity.deviceId,
+        request.params.operationId,
+        {
+          actorSubject: identity.subject,
+          organizationId: identity.organizationId,
+          requestId: request.id,
+        },
+        true,
+      );
+      if (result.kind === "not_found")
+        return reply
+          .code(404)
+          .send({ error: "CYCLE_NOT_FOUND", message: "Machine cycle not found." });
+      if (result.kind === "too_soon")
+        return reply
+          .header("retry-after", result.retryAfterSeconds)
+          .code(429)
+          .send({
+            error: "POLL_TOO_SOON",
+            message: `Poll again in ${result.retryAfterSeconds} seconds.`,
+          });
+      if (result.kind === "poll_limit")
+        return reply
+          .code(429)
+          .send({ error: "POLL_LIMIT", message: "Polling limit reached for this cycle." });
+      return toMachineCycleDto(result.cycle, result.invoice);
+    },
+  );
+
+  app.post<{ Params: { operationId: string } }>(
+    "/v1/device/cycles/:operationId/start",
+    {
+      preHandler: requireDeviceIdentity(deviceRepository),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ operationId: Type.String({ minLength: 1, maxLength: 120 }) }),
+        response: {
+          200: machineCycleSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      if (!config.deviceCycleStartEnabled)
+        return reply.code(409).send({
+          error: "CYCLE_START_DISABLED",
+          message: "Machine starts remain disabled until operator spending budgets are enforced.",
+        });
+      const identity = request.deviceIdentity;
+      if (!identity)
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A registered machine identity is required.",
+        });
+      const result = await machineCycleRepository.requestStart(
+        identity.deviceId,
+        request.params.operationId,
+        {
+          actorSubject: identity.subject,
+          organizationId: identity.organizationId,
+          requestId: request.id,
+        },
+      );
+      if (result.kind === "not_found")
+        return reply
+          .code(404)
+          .send({ error: "CYCLE_NOT_FOUND", message: "Machine cycle not found." });
+      if (result.kind === "payment_required")
+        return reply.code(409).send({
+          error: "PAYMENT_REQUIRED",
+          message: "A paid invoice is required before requesting a cycle start.",
+        });
+      if (result.kind === "payment_not_validated")
+        return reply.code(409).send({
+          error: "VALIDATED_PAYMENT_REQUIRED",
+          message: "Only a validated XRPL Testnet payment can authorize a cycle start.",
+        });
+      if (result.kind === "invalid_transition")
+        return reply.code(409).send({
+          error: "INVALID_CYCLE_STATE",
+          message: `Cannot request a start from ${result.state}.`,
+        });
+      return toMachineCycleDto(result.cycle, result.invoice);
+    },
+  );
+
+  app.post<{
+    Params: { operationId: string };
+    Body: import("@mmp/contracts").MachineCycleAcknowledgement;
+  }>(
+    "/v1/device/cycles/:operationId/ack",
+    {
+      preHandler: requireDeviceIdentity(deviceRepository),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ operationId: Type.String({ minLength: 1, maxLength: 120 }) }),
+        body: machineCycleAcknowledgementSchema,
+        response: {
+          200: machineCycleSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const identity = request.deviceIdentity;
+      if (!identity)
+        return reply.code(401).send({
+          error: "UNAUTHENTICATED",
+          message: "A registered machine identity is required.",
+        });
+      const result = await machineCycleRepository.acknowledge(
+        identity.deviceId,
+        request.params.operationId,
+        request.body,
+        {
+          actorSubject: identity.subject,
+          organizationId: identity.organizationId,
+          requestId: request.id,
+        },
+      );
+      if (result.kind === "not_found")
+        return reply
+          .code(404)
+          .send({ error: "CYCLE_NOT_FOUND", message: "Machine cycle not found." });
+      if (result.kind === "invalid_transition")
+        return reply.code(409).send({
+          error: "INVALID_CYCLE_STATE",
+          message: `Cannot acknowledge from ${result.state}.`,
+        });
+      return toMachineCycleDto(result.cycle, result.invoice);
     },
   );
 

@@ -60,11 +60,12 @@ Remaining workshop-derived product gaps:
 ### P1 — after the core flow works
 
 - [ ] Add an explicit checkout-session handoff for supported wallets.
-- [x] Design a low-connectivity device mode for an unattended washer; follow-on implementation tickets MMP-014–MMP-015 remain in the backlog.
+- [x] Design a low-connectivity device mode for an unattended washer and implement authenticated payment/cycle state tracking (MMP-014).
 - [x] Implement registered-device invoice creation with replay-safe operation IDs (MMP-013).
 - [ ] Add receipt export and merchant reconciliation history.
 - [x] Complete Auth0 OIDC, merchant isolation, audit, and device-identity tickets MMP-016–MMP-020 before any public deployment.
-- [ ] Add an operator-owned spending cap and approved-payee policy before enabling device payments (MMP-021).
+- [ ] Build the browser machine checkout simulator (MMP-015).
+- [ ] Add an operator-owned spending cap and approved-payee policy before enabling device cycle starts (MMP-021).
 - [ ] Add automated domain and adapter tests once test-writing is explicitly in scope.
 
 ## Stories and acceptance criteria

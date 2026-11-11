@@ -6,13 +6,15 @@
 
 ## In Progress
 
-_None._
-
-## Ready
-
 | ID                                  | Ticket                                            | Priority | Size |
 | ----------------------------------- | ------------------------------------------------- | -------- | ---- |
 | [MMP-014](MMP-014-machine-state.md) | Add safe machine payment and cycle state tracking | P1       | M    |
+
+## Ready
+
+| ID                                  | Ticket                             | Priority | Size |
+| ----------------------------------- | ---------------------------------- | -------- | ---- |
+| [MMP-015](MMP-015-machine-kiosk.md) | Build a machine checkout simulator | P1       | M    |
 ## Blocked
 
 | ID                                                | Ticket                              | Priority | Size | Waiting on                                                                         |
@@ -26,7 +28,6 @@ _None._
 | ID                                           | Ticket                                              | Priority | Size | Depends on                                        |
 | -------------------------------------------- | --------------------------------------------------- | -------- | ---- | ------------------------------------------------- |
 | [MMP-009](MMP-009-final-submission.md)       | Prepare the final hackathon submission              | P0       | M    | Demo walkthrough and public repository readiness. |
-| [MMP-015](MMP-015-machine-kiosk.md)          | Build a machine checkout simulator                  | P1       | M    | MMP-013 and MMP-014.                              |
 | [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets | P1       | M    | MMP-014 and MMP-020.                              |
 
 ## Done
@@ -47,3 +48,4 @@ _None._
 | [MMP-019](MMP-019-audit-demo-safeguards.md)   | Add audit events and production demo safeguards         | P1       | S    |
 | [MMP-020](MMP-020-device-identity.md)         | Register machine-to-merchant identity                   | P1       | S    |
 | [MMP-013](MMP-013-machine-invoice-api.md)     | Add authenticated, idempotent machine invoice creation  | P1       | M    |
+| [MMP-014](MMP-014-machine-state.md)           | Add safe machine payment and cycle state tracking       | P1       | M    |

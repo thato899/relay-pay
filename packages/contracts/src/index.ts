@@ -2,6 +2,14 @@ import { type Static, Type } from "typebox";
 
 export const paymentModes = ["demo", "xrpl-testnet"] as const;
 export const invoiceStatuses = ["pending", "paid", "expired"] as const;
+export const machineCycleStates = [
+  "awaiting_payment",
+  "paid",
+  "start_requested",
+  "started",
+  "expired",
+  "start_unknown",
+] as const;
 
 export const createInvoiceBodySchema = Type.Object(
   {
@@ -101,6 +109,29 @@ export const deviceIdentitySchema = Type.Object({
   deviceCode: Type.String(),
 });
 
+export const machineCycleSchema = Type.Object({
+  deviceId: Type.String({ format: "uuid" }),
+  operationId: Type.String(),
+  invoiceId: Type.String({ format: "uuid" }),
+  state: Type.Union(machineCycleStates.map((state) => Type.Literal(state))),
+  invoiceStatus: Type.Union([
+    Type.Literal("pending"),
+    Type.Literal("paid"),
+    Type.Literal("expired"),
+  ]),
+  amountXrp: Type.String(),
+  network: Type.Union([Type.Literal("demo"), Type.Literal("xrpl-testnet")]),
+  expiresAt: Type.String({ format: "date-time" }),
+  paidAt: Type.Union([Type.String({ format: "date-time" }), Type.Null()]),
+  transactionHash: Type.Union([Type.String(), Type.Null()]),
+  pollIntervalSeconds: Type.Integer({ minimum: 1 }),
+});
+
+export const machineCycleAcknowledgementSchema = Type.Object(
+  { outcome: Type.Union([Type.Literal("started"), Type.Literal("unknown")]) },
+  { additionalProperties: false },
+);
+
 export const errorResponseSchema = Type.Object({
   error: Type.String(),
   message: Type.String(),
@@ -118,3 +149,5 @@ export type RegisterDeviceBody = Static<typeof registerDeviceBodySchema>;
 export type DeviceDto = Static<typeof deviceSchema>;
 export type DeviceListDto = Static<typeof deviceListSchema>;
 export type DeviceIdentityDto = Static<typeof deviceIdentitySchema>;
+export type MachineCycleDto = Static<typeof machineCycleSchema>;
+export type MachineCycleAcknowledgement = Static<typeof machineCycleAcknowledgementSchema>;

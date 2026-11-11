@@ -1,7 +1,13 @@
 import type { PaymentMode } from "@mmp/contracts";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { auditEvents, deviceInvoiceOperations, invoices, payments } from "../../db/schema.js";
+import {
+  auditEvents,
+  deviceInvoiceOperations,
+  invoices,
+  machineCycles,
+  payments,
+} from "../../db/schema.js";
 
 export type InvoiceRow = typeof invoices.$inferSelect;
 
@@ -116,6 +122,12 @@ export class InvoiceRepository {
         cycleCode: operation.cycleCode,
         requestHash: operation.requestHash,
         invoiceId: invoice.id,
+      });
+      await tx.insert(machineCycles).values({
+        deviceId: operation.deviceId,
+        operationId: operation.operationId,
+        invoiceId: invoice.id,
+        state: "awaiting_payment",
       });
       return { row: invoice, created: true };
     });

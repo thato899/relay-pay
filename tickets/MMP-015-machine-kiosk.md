@@ -1,6 +1,6 @@
 # MMP-015 — Build a machine checkout simulator
 
-- **Status:** Backlog
+- **Status:** Ready
 - **Priority / size:** P1 / M
 - **Outcome:** A browser simulator demonstrates a washer display and safe payment-state transitions without controlling physical equipment.
 

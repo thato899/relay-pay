@@ -14,6 +14,10 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((value) => value === "true"),
+  DEVICE_CYCLE_START_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => value === "true"),
   OIDC_ISSUER: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().url().optional(),
@@ -41,6 +45,12 @@ if (parsed.NODE_ENV === "production" && process.env.DEMO_PAYMENTS_ENABLED === "t
   throw new Error("DEMO_PAYMENTS_ENABLED must be false in production");
 }
 
+if (parsed.NODE_ENV === "production" && process.env.DEVICE_CYCLE_START_ENABLED === "true") {
+  throw new Error(
+    "Device cycle starts require MMP-021 operator budget enforcement before production",
+  );
+}
+
 if (parsed.AUTH_MODE === "oidc" && (!parsed.OIDC_ISSUER || !parsed.OIDC_AUDIENCE)) {
   throw new Error("OIDC_ISSUER and OIDC_AUDIENCE are required when AUTH_MODE=oidc");
 }
@@ -66,6 +76,7 @@ export const config = {
   paymentMode: parsed.PAYMENT_MODE,
   authMode: parsed.AUTH_MODE,
   demoPaymentsEnabled: parsed.DEMO_PAYMENTS_ENABLED ?? parsed.NODE_ENV !== "production",
+  deviceCycleStartEnabled: parsed.DEVICE_CYCLE_START_ENABLED ?? false,
   oidcIssuer: parsed.OIDC_ISSUER,
   oidcAudience: parsed.OIDC_AUDIENCE,
   oidcOrganizationClaim: parsed.OIDC_ORGANIZATION_CLAIM,
