@@ -3,10 +3,16 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import type { CreateInvoiceBody, CreateMachineInvoiceBody } from "@mmp/contracts";
+import type {
+  CreateInvoiceBody,
+  CreateMachineInvoiceBody,
+  DeviceBudgetUpdate,
+} from "@mmp/contracts";
 import {
   createInvoiceBodySchema,
   createMachineInvoiceBodySchema,
+  deviceBudgetSchema,
+  deviceBudgetUpdateSchema,
   deviceIdentitySchema,
   deviceListSchema,
   deviceSchema,
@@ -21,14 +27,17 @@ import {
 } from "@mmp/contracts";
 import Fastify, { type FastifyInstance } from "fastify";
 import { Type } from "typebox";
+import { dropsToXrp, xrpToDrops } from "xrpl";
 import { config } from "./config.js";
 import { pool } from "./db/client.js";
 import { requireDeviceIdentity } from "./modules/auth/device.js";
 import { requireMerchantIdentity } from "./modules/auth/oidc.js";
+import { DeviceBudgetRepository } from "./modules/devices/budget-repository.js";
 import type { DeviceRow } from "./modules/devices/repository.js";
 import { DeviceRepository } from "./modules/devices/repository.js";
 import { DeviceOperationConflictError, InvoiceRepository } from "./modules/invoices/repository.js";
 import {
+  DeviceBudgetDeniedError,
   InvoiceClosedError,
   InvoiceNotFoundError,
   InvoiceService,
@@ -87,6 +96,7 @@ export async function buildApplication(): Promise<ApplicationContext> {
   });
   const repository = new InvoiceRepository();
   const deviceRepository = new DeviceRepository();
+  const deviceBudgetRepository = new DeviceBudgetRepository();
   const machineCycleRepository = new MachineCycleRepository();
   const service = new InvoiceService(repository, config.paymentMode);
   const monitor = new XrplPaymentMonitor(repository, app.log);
@@ -282,6 +292,134 @@ export async function buildApplication(): Promise<ApplicationContext> {
     },
   );
 
+  app.get<{ Params: { id: string } }>(
+    "/v1/devices/:id/budget",
+    {
+      preHandler: requireMerchantIdentity(["devices:admin"]),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+        response: {
+          200: deviceBudgetSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const overview = await deviceBudgetRepository.read(
+        request.merchantIdentity!.organizationId,
+        request.params.id,
+      );
+      if (!overview)
+        return reply.code(404).send({ error: "DEVICE_NOT_FOUND", message: "Device not found." });
+      const budget = overview.budget;
+      return {
+        deviceId: overview.deviceId,
+        configured: Boolean(budget),
+        enabled: budget?.enabled ?? false,
+        maxCycleAmountXrp: budget ? dropsToXrp(budget.maxCycleDrops) : null,
+        windowBudgetXrp: budget ? dropsToXrp(budget.windowBudgetDrops) : null,
+        windowSeconds: budget?.windowSeconds ?? null,
+        approvedPayeeAddress: budget?.approvedPayeeAddress ?? null,
+        spentWindowXrp: dropsToXrp(overview.spentDrops),
+        reservedXrp: dropsToXrp(overview.reservedDrops),
+        deniedCount: overview.deniedCount,
+      };
+    },
+  );
+
+  app.put<{ Params: { id: string }; Body: DeviceBudgetUpdate }>(
+    "/v1/devices/:id/budget",
+    {
+      preHandler: requireMerchantIdentity(["devices:admin"]),
+      schema: {
+        tags: ["devices"],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ id: Type.String({ format: "uuid" }) }),
+        body: deviceBudgetUpdateSchema,
+        response: {
+          200: deviceBudgetSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      let maxCycleDrops: string;
+      let windowBudgetDrops: string;
+      try {
+        maxCycleDrops = xrpToDrops(request.body.maxCycleAmountXrp);
+        windowBudgetDrops = xrpToDrops(request.body.windowBudgetXrp);
+      } catch {
+        return reply.code(400).send({
+          error: "INVALID_BUDGET",
+          message: "Budget amounts must be positive XRP values with up to six decimal places.",
+        });
+      }
+      const max = BigInt(maxCycleDrops);
+      const window = BigInt(windowBudgetDrops);
+      if (max < 1n || window < max || max > 1_000_000_000_000n || window > 1_000_000_000_000n) {
+        return reply.code(400).send({
+          error: "INVALID_BUDGET",
+          message:
+            "The per-cycle cap must be positive, at most 1,000,000 XRP, and no greater than the positive rolling-window budget.",
+        });
+      }
+      const approvedPayee = request.body.approvedPayeeAddress.trim();
+      const expectedPayee = config.paymentMode === "demo" ? "demo" : config.merchantAddress;
+      if (approvedPayee !== expectedPayee) {
+        return reply.code(400).send({
+          error: "PAYEE_NOT_CONFIGURED",
+          message:
+            "The approved payee must match the API's configured payment receiver (use ‘demo’ for local simulation).",
+        });
+      }
+      const identity = request.merchantIdentity!;
+      const updated = await deviceBudgetRepository.update(
+        identity.organizationId,
+        request.params.id,
+        {
+          maxCycleDrops,
+          windowBudgetDrops,
+          windowSeconds: request.body.windowSeconds,
+          approvedPayeeAddress: approvedPayee,
+          enabled: request.body.enabled,
+        },
+        {
+          actorSubject: identity.subject,
+          organizationId: identity.organizationId,
+          requestId: request.id,
+        },
+      );
+      if (updated === "not_found")
+        return reply.code(404).send({ error: "DEVICE_NOT_FOUND", message: "Device not found." });
+      const overview = await deviceBudgetRepository.read(
+        identity.organizationId,
+        request.params.id,
+      );
+      if (!overview)
+        return reply.code(404).send({ error: "DEVICE_NOT_FOUND", message: "Device not found." });
+      return {
+        deviceId: overview.deviceId,
+        configured: true,
+        enabled: updated.enabled,
+        maxCycleAmountXrp: dropsToXrp(updated.maxCycleDrops),
+        windowBudgetXrp: dropsToXrp(updated.windowBudgetDrops),
+        windowSeconds: updated.windowSeconds,
+        approvedPayeeAddress: updated.approvedPayeeAddress,
+        spentWindowXrp: dropsToXrp(overview.spentDrops),
+        reservedXrp: dropsToXrp(overview.reservedDrops),
+        deniedCount: overview.deniedCount,
+      };
+    },
+  );
+
   app.post<{ Params: { id: string } }>(
     "/v1/devices/:id/disable",
     {
@@ -373,6 +511,11 @@ export async function buildApplication(): Promise<ApplicationContext> {
         });
         return reply.code(result.created ? 201 : 200).send(result.invoice);
       } catch (error) {
+        if (error instanceof DeviceBudgetDeniedError)
+          return reply.code(409).send({
+            error: "DEVICE_BUDGET_DENIED",
+            message: deviceBudgetDenialMessage(error.reason),
+          });
         if (error instanceof InvoiceValidationError)
           return reply.code(400).send({ error: "INVALID_AMOUNT", message: error.message });
         if (error instanceof DeviceOperationConflictError)
@@ -492,6 +635,11 @@ export async function buildApplication(): Promise<ApplicationContext> {
           error: "VALIDATED_PAYMENT_REQUIRED",
           message: "Only a validated XRPL Testnet payment can authorize a cycle start.",
         });
+      if (result.kind === "budget_denied")
+        return reply.code(409).send({
+          error: "DEVICE_BUDGET_DENIED",
+          message: deviceBudgetDenialMessage(result.reason),
+        });
       if (result.kind === "invalid_transition")
         return reply.code(409).send({
           error: "INVALID_CYCLE_STATE",
@@ -550,6 +698,11 @@ export async function buildApplication(): Promise<ApplicationContext> {
         return reply.code(409).send({
           error: "INVALID_CYCLE_STATE",
           message: `Cannot acknowledge from ${result.state}.`,
+        });
+      if (result.kind === "budget_denied")
+        return reply.code(409).send({
+          error: "DEVICE_BUDGET_DENIED",
+          message: deviceBudgetDenialMessage(result.reason),
         });
       return toMachineCycleDto(result.cycle, result.invoice);
     },
@@ -779,4 +932,16 @@ export async function buildApplication(): Promise<ApplicationContext> {
   });
 
   return { app, monitor };
+}
+
+function deviceBudgetDenialMessage(reason: string): string {
+  const messages: Record<string, string> = {
+    budget_not_configured: "The merchant has not configured a spending budget for this device.",
+    budget_disabled: "Device spending is disabled by the merchant.",
+    payee_not_approved: "The configured payment receiver is not approved for this device.",
+    cycle_limit_exceeded: "This cycle exceeds the device's per-cycle spending cap.",
+    window_limit_exceeded: "This cycle exceeds the device's remaining rolling-window budget.",
+    device_revoked: "This device has been revoked.",
+  };
+  return messages[reason] ?? "The device operation is outside its configured spending policy.";
 }

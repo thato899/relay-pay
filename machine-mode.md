@@ -25,7 +25,7 @@ Device identity must be authenticated to the API. The machine credential is stor
 8. A validated XRPL Testnet payment moves the cycle to `paid`. The device requests a start through `POST /v1/device/cycles/:operationId/start`; the API moves it to `start_requested` only when a matching validated payment exists.
 9. The device reports `started` or `unknown` through `POST /v1/device/cycles/:operationId/ack`. Repeated acknowledgements are idempotent; an unknown result can later reconcile to started.
 
-Cycle start is disabled by default (`DEVICE_CYCLE_START_ENABLED=false`). Production startup rejects enabling it until MMP-021 implements the operator-owned spending cap and approved-payee policy. Do not connect this prototype to physical equipment.
+Cycle start is disabled by default (`DEVICE_CYCLE_START_ENABLED=false`). When an operator enables it, invoice creation and cycle start both check the active operator-owned spending cap and approved-payee policy. Do not connect this prototype to physical equipment.
 
 ```mermaid
 sequenceDiagram
@@ -60,19 +60,11 @@ sequenceDiagram
 
 ## API and data requirements
 
-These are follow-up implementation tickets, not claims about current behavior:
-
-- Device authentication and merchant/device authorization.
-- Idempotency key unique per merchant and device operation, persisted with the created invoice.
-- Machine operation fields: merchant, device, machine, cycle, operation ID, invoice ID, expiry, and hardware state.
-- Device cycle-status endpoint with a 10-second minimum poll interval, 180-poll limit, rate limiting, and a short response that excludes merchant secrets.
-- Audit trail for request creation, payment validation, device acknowledgement, cycle start, expiry, and recovery.
-- Explicit state machine: `awaiting_payment → paid → start_requested → started`, with `expired` and `start_unknown` recovery states.
-- Operator-owned spending cap and approved-payee policy before device cycle starts can be enabled (MMP-021).
+MMP-013 and MMP-014 implement the authenticated device identity, idempotent operation IDs, persisted cycle state, bounded polling, and audit trail. MMP-021 adds an operator-owned spending cap and approved-payee policy. Automated boundary, concurrency, replay, and revocation coverage remains outstanding before the budget slice is complete.
 
 ## Simulator
 
-The merchant console includes a browser-only washer checkout simulator. It creates a hosted invoice at the selected fixed cycle price, shows the checkout QR, and polls invoice status. A demo-mode confirmation is labeled simulated and does not indicate a cycle can start. A paid XRPL Testnet invoice shows cycle eligibility, while physical start remains disabled until MMP-021 enforces operator-owned budgets. The simulator uses no device credential and controls no physical equipment.
+The merchant console includes a browser-only washer checkout simulator and an operator budget panel. The simulator creates a hosted invoice at the selected fixed cycle price, shows the checkout QR, and polls invoice status. A demo-mode confirmation is labeled simulated and does not indicate a cycle can start. A paid XRPL Testnet invoice shows cycle eligibility, while physical start remains disabled in the simulator. The budget panel manages per-cycle caps, rolling window totals, approved receiver addresses, and active policy state. The simulator uses no device credential and controls no physical equipment.
 
 ## Prototype boundaries
 

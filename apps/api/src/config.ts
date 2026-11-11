@@ -45,12 +45,6 @@ if (parsed.NODE_ENV === "production" && process.env.DEMO_PAYMENTS_ENABLED === "t
   throw new Error("DEMO_PAYMENTS_ENABLED must be false in production");
 }
 
-if (parsed.NODE_ENV === "production" && process.env.DEVICE_CYCLE_START_ENABLED === "true") {
-  throw new Error(
-    "Device cycle starts require MMP-021 operator budget enforcement before production",
-  );
-}
-
 if (parsed.AUTH_MODE === "oidc" && (!parsed.OIDC_ISSUER || !parsed.OIDC_AUDIENCE)) {
   throw new Error("OIDC_ISSUER and OIDC_AUDIENCE are required when AUTH_MODE=oidc");
 }

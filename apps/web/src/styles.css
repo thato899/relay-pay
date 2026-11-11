@@ -2066,6 +2066,123 @@ td:nth-child(2) > small {
 .machine-error {
   margin-bottom: 9px;
 }
+.device-budget-panel {
+  margin-top: 14px;
+  overflow: hidden;
+}
+.budget-notice {
+  margin: 12px 19px 0;
+}
+.device-budget-content {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.1fr);
+  gap: 20px;
+  padding: 19px;
+}
+.budget-overview,
+.budget-form {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.budget-overview > label,
+.budget-form > label {
+  color: #71817c;
+  font-size: 9px;
+  font-weight: 600;
+}
+.budget-overview select,
+.budget-form input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  color: #43534e;
+  background: #fbfcfb;
+  border: 1px solid #e2e9e5;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 10px;
+}
+.budget-metrics {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.budget-metrics > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 10px;
+  background: #f7faf8;
+  border: 1px solid #edf2ef;
+  border-radius: 7px;
+}
+.budget-metrics span {
+  color: #8c9995;
+  font-family: "DM Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.4px;
+}
+.budget-metrics strong {
+  color: #354b43;
+  font-size: 10px;
+}
+.budget-policy-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 2px;
+  font-size: 9px;
+}
+.budget-policy-state > span {
+  width: 7px;
+  height: 7px;
+  background: #d59a51;
+  border-radius: 50%;
+}
+.budget-policy-state.enabled {
+  color: #328363;
+}
+.budget-policy-state.enabled > span {
+  background: #42b184;
+}
+.budget-policy-state.disabled {
+  color: #98734d;
+}
+.budget-enabled-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin-top: 3px;
+  color: #65746f !important;
+}
+.budget-enabled-toggle input {
+  accent-color: #26815e;
+}
+.budget-form .create-button {
+  margin-top: 3px;
+}
+.budget-footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 11px 19px;
+  color: #82918b;
+  font-size: 8px;
+  line-height: 1.5;
+  border-top: 1px solid #edf1ee;
+}
+.budget-footnote svg {
+  flex: none;
+  color: #459475;
+}
+.budget-empty {
+  padding: 25px 19px;
+  color: #82918b;
+  font-size: 10px;
+}
 
 @media (max-width: 720px) {
   .machine-simulator-grid {
@@ -2083,5 +2200,9 @@ td:nth-child(2) > small {
   }
   .machine-checkout-body > svg {
     width: 132px;
+  }
+  .device-budget-content {
+    grid-template-columns: 1fr;
+    padding: 14px;
   }
 }

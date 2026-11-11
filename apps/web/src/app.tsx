@@ -1,4 +1,10 @@
-import type { InvoiceDto, PublicCheckoutDto, PublicConfigDto } from "@mmp/contracts";
+import type {
+  DeviceBudgetDto,
+  DeviceDto,
+  InvoiceDto,
+  PublicCheckoutDto,
+  PublicConfigDto,
+} from "@mmp/contracts";
 import {
   Activity,
   ArrowDownLeft,
@@ -745,6 +751,7 @@ function MerchantDashboard() {
           </section>
 
           <MachineSimulator config={config} />
+          <DeviceBudgetPanel config={config} />
 
           <footer className="page-footer">
             <span>
@@ -1035,6 +1042,215 @@ function MachineSimulator({ config }: { config: PublicConfigDto | null }) {
             </div>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function DeviceBudgetPanel({ config }: { config: PublicConfigDto | null }) {
+  const [devices, setDevices] = useState<DeviceDto[]>([]);
+  const [deviceId, setDeviceId] = useState("");
+  const [budget, setBudget] = useState<DeviceBudgetDto | null>(null);
+  const [maxCycleAmountXrp, setMaxCycleAmountXrp] = useState("1.250000");
+  const [windowBudgetXrp, setWindowBudgetXrp] = useState("10.000000");
+  const [windowSeconds, setWindowSeconds] = useState("86400");
+  const [approvedPayeeAddress, setApprovedPayeeAddress] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void api
+      .listDevices()
+      .then((items) => {
+        if (!active) return;
+        setDevices(items);
+        setDeviceId((current) => current || items[0]?.id || "");
+        setError("");
+      })
+      .catch((cause: unknown) => {
+        if (active)
+          setError(cause instanceof Error ? cause.message : "Could not load registered devices.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    let active = true;
+    void api
+      .getDeviceBudget(deviceId)
+      .then((next) => {
+        if (!active) return;
+        setBudget(next);
+        setMaxCycleAmountXrp(next.maxCycleAmountXrp ?? "1.250000");
+        setWindowBudgetXrp(next.windowBudgetXrp ?? "10.000000");
+        setWindowSeconds(String(next.windowSeconds ?? 86_400));
+        setApprovedPayeeAddress(
+          next.approvedPayeeAddress ??
+            (config?.mode === "demo" ? "demo" : (config?.merchantAddress ?? "")),
+        );
+        setEnabled(next.enabled);
+        setError("");
+      })
+      .catch((cause: unknown) => {
+        if (active)
+          setError(cause instanceof Error ? cause.message : "Could not load this device budget.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [deviceId, config?.merchantAddress, config?.mode]);
+
+  async function saveBudget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!deviceId) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await api.updateDeviceBudget(deviceId, {
+        maxCycleAmountXrp,
+        windowBudgetXrp,
+        windowSeconds: Number(windowSeconds),
+        approvedPayeeAddress: approvedPayeeAddress.trim(),
+        enabled,
+      });
+      setBudget(updated);
+      setNotice("Operator budget policy saved and audited.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save this device budget.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="panel device-budget-panel" id="device-budgets">
+      <div className="table-heading machine-heading">
+        <div>
+          <span className="section-number">05</span>
+          <h2>Machine spending controls</h2>
+        </div>
+        <span className="simulator-label">OPERATOR MANAGED</span>
+      </div>
+      {error && (
+        <div className="notice notice-error budget-notice" role="alert">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div className="notice notice-success budget-notice" role="status">
+          {notice}
+        </div>
+      )}
+      {loading ? (
+        <div className="budget-empty">Loading registered devices…</div>
+      ) : devices.length === 0 ? (
+        <div className="budget-empty">Register a device to configure its spending policy.</div>
+      ) : (
+        <div className="device-budget-content">
+          <div className="budget-overview">
+            <label htmlFor="budget-device">Registered device</label>
+            <select
+              id="budget-device"
+              value={deviceId}
+              onChange={(event) => setDeviceId(event.target.value)}
+            >
+              {devices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name} · {device.deviceId}
+                  {device.enabled ? "" : " · REVOKED"}
+                </option>
+              ))}
+            </select>
+            <div className="budget-metrics">
+              <div>
+                <span>SPENT THIS WINDOW</span>
+                <strong>{budget?.spentWindowXrp ?? "0"} XRP</strong>
+              </div>
+              <div>
+                <span>PENDING RESERVED</span>
+                <strong>{budget?.reservedXrp ?? "0"} XRP</strong>
+              </div>
+              <div>
+                <span>DENIED REQUESTS</span>
+                <strong>{budget?.deniedCount ?? 0}</strong>
+              </div>
+            </div>
+            <div
+              className={`budget-policy-state ${budget?.configured && budget.enabled ? "enabled" : "disabled"}`}
+            >
+              <span />
+              {budget?.configured && budget.enabled
+                ? "Spending policy active"
+                : "Spending policy inactive · device spending denied"}
+            </div>
+          </div>
+          <form className="budget-form" onSubmit={(event) => void saveBudget(event)}>
+            <label htmlFor="budget-cycle-max">Maximum per cycle (XRP)</label>
+            <input
+              id="budget-cycle-max"
+              inputMode="decimal"
+              required
+              value={maxCycleAmountXrp}
+              onChange={(event) => setMaxCycleAmountXrp(event.target.value)}
+            />
+            <label htmlFor="budget-window-total">Rolling window budget (XRP)</label>
+            <input
+              id="budget-window-total"
+              inputMode="decimal"
+              required
+              value={windowBudgetXrp}
+              onChange={(event) => setWindowBudgetXrp(event.target.value)}
+            />
+            <label htmlFor="budget-window-seconds">Window length (seconds)</label>
+            <input
+              id="budget-window-seconds"
+              type="number"
+              min="60"
+              max="2592000"
+              required
+              value={windowSeconds}
+              onChange={(event) => setWindowSeconds(event.target.value)}
+            />
+            <label htmlFor="budget-payee">
+              Approved receiver address{" "}
+              {config?.mode === "demo" ? "(use ‘demo’ for simulation)" : ""}
+            </label>
+            <input
+              id="budget-payee"
+              required
+              maxLength={128}
+              value={approvedPayeeAddress}
+              onChange={(event) => setApprovedPayeeAddress(event.target.value)}
+              placeholder="Set the exact approved XRPL receiver"
+            />
+            <label className="budget-enabled-toggle">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(event) => setEnabled(event.target.checked)}
+              />{" "}
+              Enable this spending policy
+            </label>
+            <button className="button button-dark create-button" type="submit" disabled={busy}>
+              {busy ? "Saving policy…" : "Save operator policy"}
+            </button>
+          </form>
+        </div>
+      )}
+      <div className="budget-footnote">
+        <ShieldCheck size={14} /> Only merchant admins can change limits. Pending invoices reserve
+        funds; validated payments count as spend, and expired invoices release their reservation.
       </div>
     </section>
   );

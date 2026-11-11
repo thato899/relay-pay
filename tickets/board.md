@@ -2,13 +2,18 @@
 
 **Updated:** 11 November 2026 (SAST)  
 **WIP limit:** 1 In Progress ticket  
-**Current WIP:** 0
+**Current WIP:** 1
 
-## Ready
+## In Progress
 
 | ID                                           | Ticket                                              | Priority | Size |
 | -------------------------------------------- | --------------------------------------------------- | -------- | ---- |
 | [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets | P1       | M    |
+
+## Ready
+
+| ID  | Ticket | Priority | Size |
+| --- | ------ | -------- | ---- |
 
 ## Blocked
 

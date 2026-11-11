@@ -4,10 +4,12 @@ import { db } from "../../db/client.js";
 import {
   auditEvents,
   deviceInvoiceOperations,
+  devices,
   invoices,
   machineCycles,
   payments,
 } from "../../db/schema.js";
+import { type BudgetDenial, DeviceBudgetRepository } from "../devices/budget-repository.js";
 
 export type InvoiceRow = typeof invoices.$inferSelect;
 
@@ -55,6 +57,8 @@ export class DeviceOperationConflictError extends Error {
 }
 
 export class InvoiceRepository {
+  private readonly budgets = new DeviceBudgetRepository();
+
   async create(input: NewInvoice, audit: AuditContext): Promise<InvoiceRow> {
     const [row] = await db.transaction(async (tx) => {
       const [created] = await tx.insert(invoices).values(input).returning();
@@ -76,10 +80,26 @@ export class InvoiceRepository {
     input: NewInvoice,
     operation: MachineOperation,
     audit: AuditContext,
-  ): Promise<{ row: InvoiceRow; created: boolean }> {
+  ): Promise<{ row: InvoiceRow; created: boolean } | { denied: BudgetDenial }> {
     return db.transaction(async (tx) => {
       const lockKey = `${operation.deviceId}:${operation.operationId}`;
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+      const [registeredDevice] = await tx
+        .select()
+        .from(devices)
+        .where(eq(devices.id, operation.deviceId))
+        .for("update")
+        .limit(1);
+      if (!registeredDevice?.enabled || registeredDevice.merchantId !== input.merchantId) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "device_revoked",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "device_revoked" };
+      }
       const [existing] = await tx
         .select()
         .from(deviceInvoiceOperations)
@@ -101,6 +121,61 @@ export class InvoiceRepository {
           .limit(1);
         if (!invoice) throw new Error("Device operation references a missing invoice");
         return { row: invoice, created: false };
+      }
+
+      const budget = await this.budgets.findForUpdate(tx, operation.deviceId);
+      if (!budget) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "budget_not_configured",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "budget_not_configured" };
+      }
+      if (!budget.enabled) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "budget_disabled",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "budget_disabled" };
+      }
+      const expectedPayee = input.network === "demo" ? "demo" : input.destinationAddress;
+      if (expectedPayee !== budget.approvedPayeeAddress) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "payee_not_approved",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "payee_not_approved" };
+      }
+      const amountDrops = BigInt(input.amountDrops);
+      if (amountDrops > BigInt(budget.maxCycleDrops)) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "cycle_limit_exceeded",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "cycle_limit_exceeded" };
+      }
+      const usage = await this.budgets.usageForWindow(tx, operation.deviceId, budget.windowSeconds);
+      if (usage.spentDrops + usage.reservedDrops + amountDrops > BigInt(budget.windowBudgetDrops)) {
+        await this.budgets.recordDenied(
+          tx,
+          operation.deviceId,
+          "window_limit_exceeded",
+          audit,
+          input.amountDrops,
+        );
+        return { denied: "window_limit_exceeded" };
       }
 
       const [invoice] = await tx.insert(invoices).values(input).returning();

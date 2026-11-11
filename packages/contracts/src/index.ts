@@ -102,6 +102,36 @@ export const deviceSchema = Type.Object({
 
 export const deviceListSchema = Type.Object({ items: Type.Array(deviceSchema) });
 
+export const deviceBudgetUpdateSchema = Type.Object(
+  {
+    maxCycleAmountXrp: Type.String({
+      maxLength: 18,
+      pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$",
+    }),
+    windowBudgetXrp: Type.String({
+      maxLength: 18,
+      pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$",
+    }),
+    windowSeconds: Type.Integer({ minimum: 60, maximum: 2_592_000 }),
+    approvedPayeeAddress: Type.String({ minLength: 1, maxLength: 128, pattern: "^\\S+$" }),
+    enabled: Type.Boolean(),
+  },
+  { additionalProperties: false },
+);
+
+export const deviceBudgetSchema = Type.Object({
+  deviceId: Type.String({ format: "uuid" }),
+  configured: Type.Boolean(),
+  enabled: Type.Boolean(),
+  maxCycleAmountXrp: Type.Union([Type.String(), Type.Null()]),
+  windowBudgetXrp: Type.Union([Type.String(), Type.Null()]),
+  windowSeconds: Type.Union([Type.Integer(), Type.Null()]),
+  approvedPayeeAddress: Type.Union([Type.String(), Type.Null()]),
+  spentWindowXrp: Type.String(),
+  reservedXrp: Type.String(),
+  deniedCount: Type.Integer({ minimum: 0 }),
+});
+
 export const deviceIdentitySchema = Type.Object({
   subject: Type.String(),
   organizationId: Type.String(),
@@ -148,6 +178,8 @@ export type PublicConfigDto = Static<typeof publicConfigSchema>;
 export type RegisterDeviceBody = Static<typeof registerDeviceBodySchema>;
 export type DeviceDto = Static<typeof deviceSchema>;
 export type DeviceListDto = Static<typeof deviceListSchema>;
+export type DeviceBudgetDto = Static<typeof deviceBudgetSchema>;
+export type DeviceBudgetUpdate = Static<typeof deviceBudgetUpdateSchema>;
 export type DeviceIdentityDto = Static<typeof deviceIdentitySchema>;
 export type MachineCycleDto = Static<typeof machineCycleSchema>;
 export type MachineCycleAcknowledgement = Static<typeof machineCycleAcknowledgementSchema>;

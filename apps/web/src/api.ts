@@ -1,4 +1,7 @@
 import type {
+  DeviceBudgetDto,
+  DeviceBudgetUpdate,
+  DeviceListDto,
   InvoiceDto,
   InvoiceListDto,
   PublicCheckoutDto,
@@ -6,7 +9,7 @@ import type {
 } from "@mmp/contracts";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const protectedPath = path.startsWith("/v1/invoices");
+  const protectedPath = path.startsWith("/v1/invoices") || path.startsWith("/v1/devices");
   const token = protectedPath ? await accessTokenProvider?.() : null;
   const response = await fetch(path, {
     ...init,
@@ -49,4 +52,11 @@ export const api = {
     request<InvoiceDto>(`/v1/invoices/${id}/demo-payment`, { method: "POST" }),
   simulateCheckoutPayment: (id: string) =>
     request<PublicCheckoutDto>(`/v1/checkouts/${id}/demo-payment`, { method: "POST" }),
+  listDevices: async () => (await request<DeviceListDto>("/v1/devices")).items,
+  getDeviceBudget: (id: string) => request<DeviceBudgetDto>(`/v1/devices/${id}/budget`),
+  updateDeviceBudget: (id: string, body: DeviceBudgetUpdate) =>
+    request<DeviceBudgetDto>(`/v1/devices/${id}/budget`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };

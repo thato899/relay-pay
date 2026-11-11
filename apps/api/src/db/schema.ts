@@ -105,6 +105,27 @@ export const devices = pgTable(
   ],
 );
 
+export const deviceBudgets = pgTable(
+  "device_budgets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "restrict" }),
+    maxCycleDrops: text("max_cycle_drops").notNull(),
+    windowBudgetDrops: text("window_budget_drops").notNull(),
+    windowSeconds: integer("window_seconds").notNull(),
+    approvedPayeeAddress: text("approved_payee_address").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("device_budgets_device_unique").on(table.deviceId),
+    index("device_budgets_enabled_idx").on(table.enabled, table.updatedAt),
+  ],
+);
+
 export const deviceInvoiceOperations = pgTable(
   "device_invoice_operations",
   {

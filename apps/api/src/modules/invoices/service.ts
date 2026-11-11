@@ -37,6 +37,13 @@ export class InvoiceClosedError extends Error {
   }
 }
 
+export class DeviceBudgetDeniedError extends Error {
+  constructor(readonly reason: string) {
+    super("The device operation is outside its configured spending policy.");
+    this.name = "DeviceBudgetDeniedError";
+  }
+}
+
 function isDestinationTagConflict(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -147,6 +154,7 @@ export class InvoiceService {
           },
           audit,
         );
+        if ("denied" in result) throw new DeviceBudgetDeniedError(result.denied);
         return {
           invoice: await this.getForMerchant(result.row.id, identity.organizationId, audit),
           created: result.created,

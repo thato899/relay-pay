@@ -43,6 +43,13 @@
       "when": 1794362569870,
       "tag": "0005_machine_cycles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794364294250,
+      "tag": "0006_device_budgets",
+      "breakpoints": true
     }
   ]
 }

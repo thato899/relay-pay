@@ -2,6 +2,7 @@ import type { MachineCycleAcknowledgement } from "@mmp/contracts";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { auditEvents, invoices, machineCycles, payments } from "../../db/schema.js";
+import { type BudgetDenial, DeviceBudgetRepository } from "../devices/budget-repository.js";
 import type { AuditContext } from "../invoices/repository.js";
 
 export const MACHINE_CYCLE_POLL_INTERVAL_SECONDS = 10;
@@ -21,9 +22,11 @@ export type CycleMutationResult =
   | { kind: "not_found" }
   | { kind: "payment_required"; cycle: MachineCycleRow; invoice: MachineInvoiceRow }
   | { kind: "payment_not_validated"; cycle: MachineCycleRow; invoice: MachineInvoiceRow }
+  | { kind: "budget_denied"; reason: BudgetDenial }
   | { kind: "invalid_transition"; state: MachineCycleRow["state"] };
 
 export class MachineCycleRepository {
+  private readonly budgets = new DeviceBudgetRepository();
   private async lockCycle(
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
     deviceId: string,
@@ -155,6 +158,15 @@ export class MachineCycleRepository {
         .limit(1);
       if (!validatedPayment)
         return { kind: "payment_not_validated", cycle: synced.cycle, invoice: synced.invoice };
+
+      const budgetDenial = await this.budgets.verifyPaidCycle(
+        tx,
+        deviceId,
+        synced.invoice.amountDrops,
+        synced.invoice.destinationAddress,
+        audit,
+      );
+      if (budgetDenial) return { kind: "budget_denied", reason: budgetDenial };
 
       const [updated] = await tx
         .update(machineCycles)
