@@ -11,6 +11,7 @@
     "build": "pnpm -r build",
     "lint": "biome check .",
     "format": "biome format --write .",
+    "test": "pnpm --filter @mmp/api test",
     "typecheck": "pnpm --filter @mmp/contracts build && pnpm -r typecheck",
     "db:generate": "pnpm --filter @mmp/api db:generate",
     "db:migrate": "pnpm --filter @mmp/api db:migrate"

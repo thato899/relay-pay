@@ -16,7 +16,7 @@ MMP-014 machine payment/cycle state and MMP-020 device identity.
 - [x] Limit changes are scoped to the merchant, attributable in the audit trail, and have an explicit revocation path.
 - [x] Concurrent/retried requests cannot overspend the remaining budget; reservation and settlement behavior is documented.
 - [x] The dashboard makes the current limit, spend, and denied requests visible.
-- [ ] Tests cover boundary amounts, concurrent requests, retries, and revoked devices.
+- [x] Tests cover boundary amounts, concurrent requests, retries, and revoked devices.
 
 ## Implementation notes
 
@@ -25,4 +25,4 @@ MMP-014 machine payment/cycle state and MMP-020 device identity.
 - Pending unexpired invoices reserve funds. Paid invoices count toward spend for the configured rolling window. Expired pending invoices stop reserving automatically. Budget disablement and device revocation deny future operation/start requests.
 - A paid cycle start rechecks the current policy. The global `DEVICE_CYCLE_START_ENABLED` switch remains off by default.
 - Migration `0006_device_budgets` is generated but has not been applied to a running database.
-- Automated boundary/concurrency/replay/revocation coverage remains outstanding.
+- `budget-repository.test.ts` exercises exact caps, concurrent reservations, same-operation replay, and revoked-device denial against PostgreSQL. CI runs it with a disposable PostgreSQL 16 service. Local runs require `TEST_DATABASE_URL` to point to an empty test database.

@@ -99,10 +99,11 @@ The pull-request and main-branch pipeline runs:
 
 1. Biome formatting and lint checks.
 2. TypeScript typechecks for all workspace packages.
-3. Production builds for API and web.
-4. Production dependency advisory scan (`pnpm audit`).
-5. Container builds for API and web.
-6. CodeQL security analysis and dependency review on pull requests.
+3. PostgreSQL-backed device budget boundary, concurrency, retry, and revocation tests (`pnpm test`). Locally, set `TEST_DATABASE_URL` to an empty PostgreSQL database.
+4. Production builds for API and web.
+5. Production dependency advisory scan (`pnpm audit`).
+6. Container builds for API and web.
+7. CodeQL security analysis and dependency review on pull requests.
 
 No deployment environment or credentials are assumed. Add a deploy job only after selecting a host and defining protected environment secrets.
 
