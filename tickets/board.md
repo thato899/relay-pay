@@ -2,13 +2,7 @@
 
 **Updated:** 11 November 2026 (SAST)  
 **WIP limit:** 1 In Progress ticket  
-**Current WIP:** 1
-
-## In Progress
-
-| ID                                           | Ticket                                              | Priority | Size |
-| -------------------------------------------- | --------------------------------------------------- | -------- | ---- |
-| [MMP-021](MMP-021-device-spending-budget.md) | Enforce operator-controlled device spending budgets | P1       | M    |
+**Current WIP:** 0
 
 ## Ready
 
@@ -49,3 +43,4 @@
 | [MMP-013](MMP-013-machine-invoice-api.md)     | Add authenticated, idempotent machine invoice creation  | P1       | M    |
 | [MMP-014](MMP-014-machine-state.md)           | Add safe machine payment and cycle state tracking       | P1       | M    |
 | [MMP-015](MMP-015-machine-kiosk.md)           | Build a machine checkout simulator                      | P1       | M    |
+| [MMP-021](MMP-021-device-spending-budget.md)  | Enforce operator-controlled device spending budgets     | P1       | M    |

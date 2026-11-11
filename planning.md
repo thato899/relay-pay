@@ -65,7 +65,7 @@ Remaining workshop-derived product gaps:
 - [ ] Add receipt export and merchant reconciliation history.
 - [x] Complete Auth0 OIDC, merchant isolation, audit, and device-identity tickets MMP-016–MMP-020 before any public deployment.
 - [x] Build the browser machine checkout simulator (MMP-015).
-- [ ] Verify MMP-021 automated boundary, concurrency, replay, and revocation coverage in CI before enabling device cycle starts.
+- [x] Verify MMP-021 automated boundary, concurrency, replay, and revocation coverage in CI before enabling device cycle starts.
 - [x] Add PostgreSQL-backed device budget domain and concurrency coverage to the CI pipeline.
 
 ## Stories and acceptance criteria
