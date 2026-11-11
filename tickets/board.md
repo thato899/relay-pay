@@ -19,8 +19,8 @@
 
 | ID                                                | Ticket                              | Priority | Size | Waiting on                                                                         |
 | ------------------------------------------------- | ----------------------------------- | -------- | ---- | ---------------------------------------------------------------------------------- |
-| [MMP-006](MMP-006-local-demo-stack.md)            | Build and run the local demo stack  | P0       | S    | Docker Desktop Linux engine must be running.                                       |
-| [MMP-007](MMP-007-testnet-payment-walkthrough.md) | Walk through a real Testnet payment | P0       | M    | A Testnet merchant receiver and funded sender wallet must be available.            |
+| [MMP-006](MMP-006-local-demo-stack.md)            | Build and run the local demo stack  | P0       | S    | Docker Desktop Linux engine; service start is denied by this Windows session.      |
+| [MMP-007](MMP-007-testnet-payment-walkthrough.md) | Walk through a real Testnet payment | P0       | M    | MMP-006 Linux engine; receiver and funded sender are provisioned and verified.     |
 | [MMP-008](MMP-008-checkpoint-follow-up.md)        | Resolve late checkpoint submission  | P0       | XS   | BuilderBase must allow a late update, or organizers must advise the recovery path. |
 
 ## Backlog
