@@ -11,7 +11,7 @@
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.30.0",
     "@mmp/contracts": "workspace:*",
-    "lucide-react": "1.71.0",
+    "lucide-react": "1.73.0",
     "qrcode.react": "4.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
